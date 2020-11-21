@@ -1,4 +1,3 @@
-// Package cpace provides an easy to use CPace implementation
 package cpace
 
 import (
@@ -16,35 +15,35 @@ import (
 )
 
 const (
-	Protocol    = "CPace"
-	Version     = "0.0.0"
+	protocol    = "CPace"
+	version     = "0.0.0"
 	maxIDLength = 1<<16 - 1
 )
 
 var errInternalKexAssertion = errors.New("internal: something went wrong in type assertion to Kex message")
 
-// Parameters groups a party's input parameters
+// Parameters groups a party's input parameters.
 type Parameters struct {
-	// ID is own identity
+	// ID is own identity.
 	ID []byte
 
-	// PeerID identifies the remote peer
+	// PeerID identifies the remote peer.
 	PeerID []byte
 
-	// Secret is the shared secret, e.g. the password
+	// Secret is the shared secret, e.g. the password.
 	Secret []byte
 
-	// SID is the session identifier, a unique random byte array of at least 16 bytes
+	// SID is the session identifier, a unique random byte array of at least 16 bytes.
 	SID []byte
 
 	// AD
 	AD []byte
 
-	// Encoding specifies which encoding should be used for outgoing and incoming messages
+	// Encoding specifies which encoding should be used for outgoing and incoming messages.
 	Encoding encoding.Encoding
 }
 
-// CPace wraps the core CPace session and state info and enriches them with a more abstract API
+// CPace wraps the core CPace session and state info and enriches them with a more abstract API.
 type CPace struct {
 	session
 	state
@@ -84,7 +83,7 @@ func assembleCI(role pake.Role, id, peerID, ad []byte) ([]byte, error) {
 }
 
 func buildDST(identifier hashtogroup.Ciphersuite, in int) []byte {
-	return []byte(fmt.Sprintf("%s%s-%d", Protocol, identifier, in))
+	return []byte(fmt.Sprintf("%s%s-%d", protocol, identifier, in))
 }
 
 func newCPace(role pake.Role, parameters *Parameters, csp *cryptotools.Parameters) (*CPace, error) {
@@ -112,9 +111,7 @@ func newCPace(role pake.Role, parameters *Parameters, csp *cryptotools.Parameter
 		return nil, err
 	}
 
-	// meta := pake.MetaData()
-
-	pakeCore, err := pake.KeyExchange.New(Protocol, Version, parameters.Encoding, csp, role, parameters.PeerID)
+	pakeCore, err := pake.KeyExchange.New(protocol, version, parameters.Encoding, csp, role, parameters.PeerID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +131,12 @@ func newCPace(role pake.Role, parameters *Parameters, csp *cryptotools.Parameter
 	}, nil
 }
 
-// Client returns a new CPace client instance
+// Client returns a new CPace client instance.
 func Client(parameters *Parameters, csp *cryptotools.Parameters) (pake.Pake, error) {
 	return newCPace(pake.Initiator, parameters, csp)
 }
 
-// Server returns a new CPace server instance
+// Server returns a new CPace server instance.
 func Server(parameters *Parameters, csp *cryptotools.Parameters) (pake.Pake, error) {
 	return newCPace(pake.Responder, parameters, csp)
 }
@@ -216,12 +213,12 @@ func (c *CPace) Authenticate(m []byte) ([]byte, error) {
 	return r.Encode(c.core.Encoding())
 }
 
-// SessionKey returns the session's intermediary secret session key
+// SessionKey returns the session's intermediary secret session key.
 func (c *CPace) SessionKey() []byte {
 	return c.iSessionKey
 }
 
-// EncodedParameters returns the 4-byte encoding of the ciphersuite parameters
+// EncodedParameters returns the 4-byte encoding of the cipher suite parameters.
 func (c *CPace) EncodedParameters() cryptotools.CiphersuiteEncoding {
 	return c.core.Crypto.Parameters.Encode()
 }

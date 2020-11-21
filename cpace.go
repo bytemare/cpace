@@ -1,4 +1,3 @@
-// Package cpace provides an easy to use CPace implementation
 package cpace
 
 import (
@@ -14,20 +13,20 @@ const (
 	minSidLength = 16
 )
 
-// session holds the public, shared, session information
+// session holds the public, shared, session information.
 type session struct {
-	// role specifies whether the current instance is an initiator or responder
+	// role specifies whether the current instance is an initiator or responder.
 	role pake.Role
 
-	// sid session identifier, must be random and different for each session, and greater or equal than minSidLength bytes
+	// sid session identifier, must be random and different for each session, and greater or equal than minSidLength bytes.
 	sid []byte
 
-	// cid channel identifier, holds identities of parties and eventually additional data about the connection
+	// cid channel identifier, holds identities of parties and eventually additional data about the connection.
 	// cid = idA || idB || AD
 	cid []byte
 }
 
-// state is the CPace's internal state
+// state is the CPace's internal state.
 type state struct {
 	password      []byte
 	publicElement []byte
@@ -65,7 +64,7 @@ func (c *CPace) publicPoint() error {
 	return nil
 }
 
-// intermediarySessionKey calculates the secret session key and stores it in internal state
+// intermediarySessionKey calculates the secret session key and stores it in internal state.
 func (c *CPace) intermediarySessionKey(peerElement []byte) error {
 	if len(peerElement) == 0 {
 		return errPeerElementNil
@@ -85,9 +84,6 @@ func (c *CPace) intermediarySessionKey(peerElement []byte) error {
 		return errPeerElementIdentity
 	}
 
-	// transcript := c.transcript(peerElement)
-	// c.ISessionKey = c.Core.Crypto.HKDF(k.Encode(), transcript, c.dsi2, 0)
-
 	c.buildKey(k.Bytes(), peerElement)
 
 	return err
@@ -95,6 +91,7 @@ func (c *CPace) intermediarySessionKey(peerElement []byte) error {
 
 func (c *CPace) buildKey(k, peerElement []byte) {
 	ee := make([]byte, 0, len(c.publicElement)+len(peerElement))
+
 	switch c.role {
 	case pake.Initiator:
 		ee = append(ee, c.publicElement...)
@@ -112,7 +109,7 @@ func (c *CPace) buildKey(k, peerElement []byte) {
 	c.iSessionKey = c.core.Crypto.Hash.Hash(0, in)
 }
 
-func (c *CPace) initiate() ([]byte, []byte, error) {
+func (c *CPace) initiate() (pe, sid []byte, err error) {
 	if err := c.publicPoint(); err != nil {
 		return nil, nil, err
 	}
@@ -156,22 +153,3 @@ func (c *CPace) finish(peerElement []byte) error {
 
 	return nil
 }
-
-// transcript returns the protocol's transcript given the peer element
-//func (c *CPace) transcript(peerElement []byte) []byte {
-//	transcript := make([]byte, 0, minSidLength+2*pointLength)
-//	transcript = append(transcript, c.sid...)
-//
-//	switch c.role {
-//	case pake.Initiator:
-//		transcript = append(transcript, c.publicElement...)
-//		transcript = append(transcript, peerElement...)
-//	case pake.Responder:
-//		transcript = append(transcript, peerElement...)
-//		transcript = append(transcript, c.publicElement...)
-//	default:
-//		panic(errInternalInvalidRole)
-//	}
-//
-//	return transcript
-//}

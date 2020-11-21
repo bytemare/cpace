@@ -1,4 +1,3 @@
-// Package cpace provides an easy to use CPace implementation
 package cpace
 
 import (
@@ -29,7 +28,7 @@ func errorPeerData(err string) error {
 	return fmt.Errorf("%s : %w", errPrefixPeerData, errors.New(err))
 }
 
-// Setup errors
+// Setup errors.
 var (
 	errSetupSIDTooShort = errorSetup(fmt.Sprintf("session id is too short (< %d)", minSidLength))
 	errSetupLongID      = errorSetup("id exceeds authorised length")
@@ -37,10 +36,10 @@ var (
 	errSetupLongAD      = errorSetup("AD exceeds authorised length")
 )
 
-// Responder specific errors
+// Responder specific errors.
 var errRespNilMsg = errorImplementation("responder can't handle nil messages")
 
-// Initiator specific errors
+// Initiator specific errors.
 var errInitReInit = errorImplementation("unexpected nil message - already initialised")
 
 var (
@@ -48,7 +47,7 @@ var (
 	errInitSIDDifferent = errorPeerData("session id from received from peer is different")
 )
 
-// Errors resulting from invalid peer data
+// Errors resulting from invalid peer data.
 var (
 	errPeerEncoding        = errorPeerData("decoding errored")
 	errPeerElementNil      = errorPeerData("peer element is either nil or of size 0")
@@ -56,13 +55,13 @@ var (
 	errPeerElementIdentity = errorPeerData("invalid peer message : identity element")
 )
 
-// Other errors
+// Other errors.
 var (
 	errInternalNoPublicPoint     = errorImplementation("public point not set - not initiated ?")
 	errInternalUnexpectedMessage = errorImplementation("received message on unexpected stage")
 )
 
-// These are used in panics for internal inconsistencies, that should not occur
+// These are used in panics for internal inconsistencies, that should not occur.
 var (
 	errInternalInvalidRole = errorInternal("invalid role (should not happen)")
 	errInternalNoSID       = errorInternal("session id is not set (should not happen)")

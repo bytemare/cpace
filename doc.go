@@ -1,4 +1,4 @@
-// Package cpace provides an easy to use CPace implementation
+// Package cpace provides an easy to use CPace PAKE implementation to do secure mutual authentication based on passwords.
 //
 // CPace implements the CFRG recommended balanced Password Authentication Key Exchange.
 //

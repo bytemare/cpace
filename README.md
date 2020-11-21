@@ -1,6 +1,8 @@
 # CPace
 
-CPace implements the CFRG recommended balanced Password Authentication Key Exchange.
+CPace provides an easy to use CPace PAKE implementation to do secure mutual authentication based on passwords.
+
+CPace implements https://datatracker.ietf.org/doc/draft-irtf-cfrg-cpace.
 
 **!!! WARNING : THIS IMPLEMENTATION IS PROOF OF CONCEPT AND BASED ON THE LATEST INTERNET DRAFT.
 THERE ARE ABSOLUTELY NO WARRANTIES. !!!**
@@ -12,7 +14,7 @@ Note: The registration of the secret password is not in the scope of the protoco
 
 # Get it
 
-go get github.com/bytemare/cpace
+go get -u github.com/bytemare/cpace
 
 # Use it
 
@@ -27,7 +29,7 @@ Messages are of type message.Kex, from the companion pake package. These message
 <details>
 <summary>Example:</summary>
 
-```
+```Go
         serverID := []byte("server")
 	username := []byte("client")
 	password := []byte("password")
@@ -60,12 +62,7 @@ Messages are of type message.Kex, from the companion pake package. These message
 
 # Under the hood
 
-All cryptographic operations can be found in the pake package, which itself uses either the standard library or tested and proved external libraries.
-The Ristretto255 group is used for the mathematical heavy lifting and performance.
-
-Hash operations use SHA3 and Shake.
-
-Default password key derivation is Argon2id.
+All cryptographic operations can be found in the [cryptotools package](https://github.com/bytemare/cryptotools), which itself uses either the standard library or tested and proved external libraries.
 
 # Deploy it
 
@@ -73,4 +70,6 @@ Don't, yet.
 
 ## Work on it
 
-WIP
+- Closely follow draft evolution
+- More testing, with vectors, if available
+- Fuzzing
