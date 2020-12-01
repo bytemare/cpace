@@ -1,4 +1,6 @@
 # CPace
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fbytemare%2Fcpace.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fbytemare%2Fcpace?ref=badge_shield)
+
 
 CPace provides an easy to use CPace PAKE implementation to do secure mutual authentication based on passwords.
 
@@ -73,3 +75,7 @@ Don't, yet.
 - Closely follow draft evolution
 - More testing, with vectors, if available
 - Fuzzing
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fbytemare%2Fcpace.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fbytemare%2Fcpace?ref=badge_large)
