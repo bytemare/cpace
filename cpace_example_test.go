@@ -4,68 +4,57 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bytemare/cryptotools/encoding"
+	"github.com/bytemare/cryptotools/group/ciphersuite"
+	"github.com/bytemare/cryptotools/hash"
 )
 
 func ExampleCPace() {
+	clientID := []byte("client")
 	serverID := []byte("server")
-	username := []byte("client")
 	password := []byte("password")
-
 	var ad []byte = nil
 
-	clientParams := &Parameters{
-		ID:       username,
-		PeerID:   serverID,
-		Secret:   password,
-		SID:      nil,
-		AD:       ad,
-		Encoding: encoding.Gob,
+	// Set cryptographic parameters
+	params := &Parameters{
+		Group: ciphersuite.Ristretto255Sha512,
+		Hash:  hash.SHA512,
 	}
 
-	// Set up the initiator, let's call it the client
-	client, err := Client(clientParams, nil)
+	// Prepare common communication info
+	info := params.Init(clientID, serverID, ad)
+
+	// Get a client and a server
+	client := info.New(Initiator)
+	server := info.New(Responder)
+
+	// Client starts. If no sid is given for the client, the function returns a new sid.
+	epku, sid, err := client.Start(password, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	// Start the protocol.
-	// message1 must then be sent to the responder
-	message1, err := client.Authenticate(nil)
+	// The server receives sends back its own epks.
+	// The sid should be the same as from the client, and can even be the one the client sent.
+	epks, _, err := server.Start(password, sid)
 	if err != nil {
 		panic(err)
 	}
 
-	serverParams := &Parameters{
-		ID:       serverID,
-		PeerID:   username,
-		Secret:   password,
-		SID:      nil,
-		AD:       ad,
-		Encoding: encoding.Gob,
-	}
-
-	// Set up the responder, let's call it the server
-	server, err := Server(serverParams, nil)
+	// The session key can already be derived by the server using the client's epku.
+	// If they differ, one of the peers used the wrong password.
+	serverSK, err := server.Finish(epku)
 	if err != nil {
 		panic(err)
 	}
 
-	// Handle the initiator's message, and send back message2. At this point the session key can already be derived.
-	message2, err := server.Authenticate(message1)
-	if err != nil {
-		panic(err)
-	}
-
-	// Give the initiator the responder's answer. Since we're in implicit authentication, no message comes out here.
-	// After this, the initiator can derive the session key.
-	_, err = client.Authenticate(message2)
+	// The client receives the server epks, and can derive the session key.
+	clientSK, err := client.Finish(epks)
 	if err != nil {
 		panic(err)
 	}
 
 	// The protocol is finished, and both parties now share the same secret session key
-	if bytes.Equal(client.SessionKey(), server.SessionKey()) {
+	if bytes.Equal(serverSK, clientSK) {
 		fmt.Println("Success ! Both parties share the same secret session key !")
 	} else {
 		fmt.Println("Failed. Client and server keys are different.")

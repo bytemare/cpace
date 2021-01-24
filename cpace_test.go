@@ -2,534 +2,228 @@ package cpace
 
 import (
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
-	"strings"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
 	"testing"
 
-	"github.com/gtank/ristretto255"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/bytemare/cryptotools"
-	"github.com/bytemare/cryptotools/encoding"
+	"github.com/bytemare/cryptotools/group/ciphersuite"
+	"github.com/bytemare/cryptotools/hash"
 	"github.com/bytemare/cryptotools/utils"
-	"github.com/bytemare/pake"
-	"github.com/bytemare/pake/message"
 )
 
-type testNew struct {
-	*Parameters
-	csp *cryptotools.Parameters
+const (
+	testIDInit      = "initiator"
+	testIDResponder = "responder"
+	testAD          = "ad"
+	testPassword    = "password"
+)
+
+/*
+	Functional Tests and Coverage
+*/
+
+func defaultParameters() *Parameters {
+	return &Parameters{
+		Group: ciphersuite.Ristretto255Sha512,
+		Hash:  hash.SHAKE128,
+	}
 }
 
-func newTestCPace(role pake.Role, params *Parameters, csp *cryptotools.Parameters, tb testing.TB) pake.Pake {
-	var c pake.Pake
-	var err error
-	if role == pake.Initiator {
-		c, err = Client(params, csp)
-	} else {
-		c, err = Server(params, csp)
+func defaultInfo() *Info {
+	return defaultParameters().Init([]byte(testIDInit), []byte(testIDResponder), []byte(testAD))
+}
+
+func genTestParams() []*Parameters {
+	testGroups := []ciphersuite.Identifier{ciphersuite.Ristretto255Sha512, ciphersuite.Curve25519Sha512, ciphersuite.P256Sha256}
+	testHash := []hash.Identifier{hash.SHA256, hash.SHA512, hash.SHAKE128}
+
+	l := len(testGroups) * len(testHash)
+	p := make([]*Parameters, l)
+
+	i := 0
+	for _, g := range testGroups {
+		for _, h := range testHash {
+			p[i] = &Parameters{g, h}
+			i++
+		}
 	}
+
+	return p
+}
+
+func runCPace(initiator, responder *CPace, iPwd, rPwd, iSid, rSid []byte) ([]byte, error) {
+	epku, sid, err := initiator.Start(iPwd, iSid)
 	if err != nil {
-		tb.Fatal(err)
+		return nil, err
 	}
 
-	return c
-}
-
-func goodCPace(role pake.Role, tb testing.TB) pake.Pake {
-	return newTestCPace(role, goodNew[role].Parameters, goodNew[role].csp, tb)
-}
-
-var goodNew = map[pake.Role]testNew{
-	pake.Initiator: {&Parameters{[]byte("initiator"), []byte("responder"), []byte("secret"), nil, nil, encoding.Gob}, nil},
-	pake.Responder: {&Parameters{[]byte("responder"), []byte("initiator"), []byte("secret"), nil, nil, encoding.Gob}, nil},
-}
-
-func TestUnexpectedMessages(t *testing.T) {
-	i := goodCPace(pake.Initiator, t)
-	r := goodCPace(pake.Responder, t)
-
-	// Operate key exchange
-	cpaceRun(i, r, t)
-
-	// Test initiator
-	_, err := i.Authenticate(nil)
-	if !errors.Is(err, errInternalUnexpectedMessage) {
-		t.Errorf("must return error on unexpected message. expected '%v', got '%v'", errInternalUnexpectedMessage, err)
+	if rSid != nil {
+		sid = rSid
 	}
 
-	// Test responder
-	_, err = r.Authenticate(nil)
-	if !errors.Is(err, errInternalUnexpectedMessage) {
-		t.Errorf("must return error on unexpected message. expected '%v', got '%v'", errInternalUnexpectedMessage, err)
-	}
-
-	// Test when initiator receives a valid message without being initialised
-	i = goodCPace(pake.Initiator, t)
-	r = goodCPace(pake.Responder, t)
-
-	m1, _ := i.Authenticate(nil)
-	m2, _ := r.Authenticate(m1)
-	i = goodCPace(pake.Initiator, t)
-
-	_, err = i.Authenticate(m2)
-	if !errors.Is(err, errInternalNoPublicPoint) {
-		t.Errorf("expected error when calling Authenticate() on initiator without its initialisation."+
-			"expected '%v', got '%v'", errInternalNoPublicPoint, err)
-	}
-}
-
-func TestNilMessage(t *testing.T) {
-	i := goodCPace(pake.Initiator, t)
-	r := goodCPace(pake.Responder, t)
-
-	// Make the initiator do a first step
-	_, err := i.Authenticate(nil)
+	epks, _, err := responder.Start(rPwd, sid)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
-	// Test initiator
-	_, err = i.Authenticate(nil)
-	if !errors.Is(err, errInitReInit) {
-		t.Errorf("must return error on nil message. expected '%v', got '%v'", errRespNilMsg, err)
-	}
-
-	// Test responder
-	_, err = r.Authenticate(nil)
-	if !errors.Is(err, errRespNilMsg) {
-		t.Errorf("must return error on nil message. expected '%v', got '%v'", errRespNilMsg, err)
-	}
-}
-
-//func TestInvalidRole(t *testing.T) {
-//	invalidRole := pake.Role(3)
-//
-//	// Should error on New, during ci assembling
-//	p := &Parameters{invalidRole, goodNew[pake.Initiator].Identifier, goodNew[pake.Initiator].PeerID,
-//		goodNew[pake.Initiator].Secret, goodNew[pake.Initiator].SID, goodNew[pake.Initiator].AD, goodNew[pake.Initiator].Encoding}
-//
-//	_, err := New(p, nil)
-//	if !errors.Is(err, errInternalInvalidRole) {
-//		t.Errorf("expected error in New(). expected '%v', got '%v'", errInternalInvalidRole, err)
-//	}
-//
-//	i := goodCPace(pake.Initiator, t)
-//
-//	i.cpace.role = invalidRole
-//
-//	//assert.PanicsWithError(t, errInternalInvalidRole.Error(), func() {
-//	//	_ = i.transcript(nil)
-//	//}, "expected panic in Authenticate()")
-//
-//	if _, err := i.Authenticate(nil); !errors.Is(err, errInternalInvalidRole) {
-//		t.Fatalf("expected error on invalid role. Got %q", err)
-//	}
-//}
-
-func TestNewNilSid(t *testing.T) {
-	// Verify a sid is set internally for the initiator when none provided
-	i := goodCPace(pake.Initiator, t).(*CPace)
-
-	switch s := len(i.sid); {
-	case s == 0:
-		t.Fatal("session id has not been set, but should have")
-	case s < minSidLength:
-		t.Fatalf("patched session id is too short. Expected %d bytes, got %d )", s, minSidLength)
-	}
-}
-
-func TestNewInvalidCiphersuite(t *testing.T) {
-	csp := &cryptotools.Parameters{
-		Group:  64,
-		Hash:   64,
-		IHF:    64,
-		IHFLen: 64,
-	}
-
-	if _, err := Client(goodNew[pake.Initiator].Parameters, csp); err == nil {
-		t.Fatalf("expected error on invalid CSP")
-	}
-}
-
-func TestAuthenticateNilSid(t *testing.T) {
-	r := goodCPace(pake.Responder, t).(*CPace)
-	r.sid = nil
-
-	// Responder receives a message without an sid, and none set
-	kex := message.Kex{
-		Element: nil,
-		Auth:    nil,
-	}
-
-	m, err := kex.Encode(r.core.Encoding())
+	serverSK, err := responder.Finish(epku)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
-	_, err = r.Authenticate(m)
-	if !errors.Is(err, errInitSIDInvalid) {
-		t.Fatal("expect error on message with no sid and no sid set")
-	}
-}
-
-func TestNilSid(t *testing.T) {
-	i := goodCPace(pake.Initiator, t).(*CPace)
-	i.sid = nil
-
-	// Test initiator
-	if _, err := i.Authenticate(nil); !errors.Is(err, errInternalNoSID) {
-		t.Fatalf("expected error when calling Authenticate on nil message with no sid set. Got %q", err)
-	}
-}
-
-func TestBadSid(t *testing.T) {
-	// Initiator : Give it a short session id, should fail
-	badSid := utils.RandomBytes(minSidLength - 1)
-
-	p := &Parameters{
-		SID:      badSid,
-		Encoding: encoding.Gob,
-	}
-
-	_, err := Client(p, nil)
-	//if c != nil {
-	//	// todo : this is interesting, since c is nil but still passes the nil test
-	//	t.Fatalf("invalid sid but still initialised a struct: %v\n%v\n", c, err)
-	//}
-
-	if !errors.Is(err, errSetupSIDTooShort) {
-		t.Fatal("invalid error returned for small session identifier")
-	}
-
-	// Responder : check own and peer sid on message receiving
-	r := goodCPace(pake.Responder, t).(*CPace)
-	r.sid = nil
-
-	// Responder receives a message with a short sid, and none set
-	kex := message.Kex{
-		Element: nil,
-		Auth:    badSid,
-	}
-
-	m, err := kex.Encode(r.core.Encoding())
+	clientSK, err := initiator.Finish(epks)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
-	_, err = r.Authenticate(m)
-	if !errors.Is(err, errInitSIDInvalid) {
-		t.Fatal("expect error on message with short sid and no sid set")
+	if !bytes.Equal(serverSK, clientSK) {
+		return nil, errors.New("client and server keys are different")
 	}
 
-	// The session id received by the responder from the initiator
-	// is valid but different than the one set by the responder
-	r.sid = utils.RandomBytes(minSidLength)
-	kex.Auth = utils.RandomBytes(minSidLength)
-
-	assert.NotEqual(t, r.sid, kex.Auth, "two random []byte are supposed to be different")
-
-	m, err = kex.Encode(r.core.Encoding())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = r.Authenticate(m)
-	if !errors.Is(err, errInitSIDDifferent) {
-		t.Fatal("expect error on message with different sid when sid is set")
-	}
+	return clientSK, nil
 }
 
-func TestSkipInit(t *testing.T) {
-	// Initiator should not derive the session key without its own public share
-	i := goodCPace(pake.Initiator, t).(*CPace)
-	kex := message.Kex{
-		Element: utils.RandomBytes(32),
-		Auth:    nil,
-	}
+func TestCPaceDefault(t *testing.T) {
+	params := genTestParams()
 
-	m, err := kex.Encode(i.core.Encoding())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = i.Authenticate(m)
-	if !errors.Is(err, errInternalNoPublicPoint) {
-		t.Fatal("expected error when initiator receives message when not having set its own public element")
-	}
-}
-
-func TestDecodeKeyExchange(t *testing.T) {
-	encodings := []encoding.Encoding{encoding.JSON, encoding.Gob}
-	var kex = message.Kex{
-		Element: utils.RandomBytes(32),
-		Auth:    utils.RandomBytes(32),
-	}
-
-	for _, enc := range encodings {
-		t.Run(string(enc), func(t *testing.T) {
-			// Encode
-			e, err := kex.Encode(enc)
+	for i, p := range params {
+		t.Run(fmt.Sprintf("%d: %s-%s", i, p.Group, p.Hash), func(t *testing.T) {
+			info := p.Init([]byte(testIDInit), []byte(testIDResponder), []byte(testAD))
+			client := info.New(Initiator)
+			server := info.New(Responder)
+			_, err := runCPace(client, server, []byte(testPassword), []byte(testPassword), nil, nil)
 			if err != nil {
-				t.Fatalf("unexpected error: %q", err)
-			}
-
-			// Decode
-			d, err := decodeKeyExchange(e, enc)
-			if err != nil {
-				t.Fatalf("unexpected error: %q", err)
-			}
-
-			// Check values
-			assert.EqualValues(t, &kex, d)
-		})
-	}
-}
-
-func TestInvalidMessage(t *testing.T) {
-	// Should fail when the received peer element is not a valid point
-	init := goodCPace(pake.Initiator, t).(*CPace)
-	resp := goodCPace(pake.Responder, t).(*CPace)
-
-	m, err := init.Authenticate(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kex, err := decodeKeyExchange(m, init.core.Encoding())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	test := []struct {
-		*message.Kex
-		expectedError error
-	}{
-		{
-			Kex: &message.Kex{
-				Element: nil, // An element must not be nil
-				Auth:    kex.Auth,
-			},
-			expectedError: errPeerElementNil,
-		},
-		{
-			Kex: &message.Kex{
-				Element: utils.RandomBytes(31), // Too short, supposed to be 32 bytes long
-				Auth:    kex.Auth,
-			},
-			expectedError: errPeerElementInvalid,
-		},
-	}
-
-	for i, msg := range test {
-		msgEncoded, err := msg.Kex.Encode(resp.core.Encoding())
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Responder
-		_, err = resp.Authenticate(msgEncoded)
-		if !errors.Is(err, msg.expectedError) {
-			e := errors.Unwrap(err)
-			t.Logf("unwrap to %v", e)
-
-			t.Fatalf("%d : expect error when peer public element is not a valid point : %v", i, err)
-		}
-
-		if resp.SessionKey() != nil {
-			t.Fatalf("%d : must not derive session key on invalid point", i)
-		}
-
-		// Initiator
-		_, err = init.Authenticate(msgEncoded)
-		if !errors.Is(err, msg.expectedError) {
-			t.Fatalf("%d : expect error when peer public element is not a valid point", i)
-		}
-
-		if init.SessionKey() != nil {
-			t.Fatalf("%d : must not derive session key on invalid point", i)
-		}
-	}
-
-	// Should trigger decoding error
-	m, err = test[0].Kex.Encode(resp.core.Encoding())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	m[0] ^= 0xff
-	m[1] ^= 0xff
-	m[2] ^= 0xff
-
-	_, err = init.Authenticate(m)
-	if !errors.Is(err, errPeerEncoding) {
-		t.Fatalf("expected encoding error %q, got %q", errPeerEncoding, err)
-	}
-}
-
-func TestNeutralElement(t *testing.T) {
-	i := goodCPace(pake.Initiator, t).(*CPace)
-	r := goodCPace(pake.Responder, t).(*CPace)
-
-	badMessage := message.Kex{
-		Element: ristretto255.NewElement().Zero().Encode(nil),
-		Auth:    utils.RandomBytes(minSidLength),
-	}
-
-	m, err := badMessage.Encode(i.core.Encoding())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Responder should fail
-	_, err = r.Authenticate(m)
-	if !errors.Is(err, errPeerElementIdentity) {
-		t.Fatal("expect error when initiator public element is not a valid point")
-	}
-
-	// Initiator should fail
-	_, err = i.Authenticate(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = i.Authenticate(m)
-	if !errors.Is(err, errPeerElementIdentity) {
-		t.Fatal("expect error when responder public element is not a valid point")
-	}
-}
-
-func TestCIOverflow(t *testing.T) {
-	test := []struct {
-		name, id, peerID, ad string
-		expectedErr          error
-	}{
-		{
-			name: "Long Identifier",
-			id:   strings.Repeat("a", 1<<16), peerID: "b", ad: "ad",
-			expectedErr: errSetupLongID,
-		},
-		{
-			name: "Long peer Identifier",
-			id:   "a", peerID: strings.Repeat("b", 1<<16), ad: "ad",
-			expectedErr: errSetupLongPeerID,
-		},
-		{
-			name: "Long AD",
-			id:   "a", peerID: "b", ad: strings.Repeat("d", 1<<16),
-			expectedErr: errSetupLongAD,
-		},
-	}
-
-	for _, tt := range test {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			p := &Parameters{
-				// Role:     64,
-				ID:       []byte(tt.id),
-				PeerID:   []byte(tt.peerID),
-				Secret:   nil,
-				SID:      nil,
-				AD:       []byte(tt.ad),
-				Encoding: encoding.Gob,
-			}
-
-			_, err := Client(p, nil)
-			if !errors.Is(err, tt.expectedErr) {
-				t.Fatalf("expected error for %s", tt.name)
+				t.Fatal(err)
 			}
 		})
 	}
 }
 
-func cpaceRun(init, responder pake.Pake, tb testing.TB) {
-	message1, err := init.Authenticate(nil)
-	if err != nil {
-		tb.Fatalf("unexpected error : %v", err)
-	}
-
-	message2, err := responder.Authenticate(message1)
-	if err != nil {
-		tb.Fatalf("unexpected error : %v", err)
-	}
-
-	_, err = init.Authenticate(message2)
-	if err != nil {
-		tb.Fatalf("unexpected error : %v", err)
+func TestCPace_ResponderNilSid(t *testing.T) {
+	i := defaultInfo()
+	s := i.New(Responder)
+	if _, _, err := s.Start([]byte(testPassword), nil); err == nil || err.Error() != errSetupSIDNil.Error() {
+		t.Fatalf("expected error on nil sid for responder. Got %q, want %q", err, errSetupSIDNil)
 	}
 }
 
-func fullTest(name string, init, responder *CPace, success bool, tb testing.TB) {
-	// Operate key exchange
-	cpaceRun(init, responder, tb)
-
-	// Verify results
-	keyA := init.SessionKey()
-	keyB := responder.SessionKey()
-
-	if success {
-		if len(keyA) != 64 {
-			tb.Errorf("%s : initiator key is of invalid length. Expected %d bytes, got %d", name, 64, len(keyA))
-		}
-
-		if len(keyB) != 64 {
-			tb.Errorf("%s : responder key is of invalid length. Expected %d bytes, got %d", name, 64, len(keyA))
-		}
+func TestCPace_ShortSid(t *testing.T) {
+	i := defaultInfo()
+	sid := []byte("short sid")
+	client := i.New(Initiator)
+	server := i.New(Responder)
+	if _, _, err := client.Start([]byte(testPassword), sid); err == nil || err.Error() != errSetupSIDTooShort.Error() {
+		t.Fatalf("expected error on nil sid for responder. Got %q, want %q", err, errSetupSIDTooShort)
 	}
-
-	if bytes.Equal(keyA, keyB) != success {
-		tb.Errorf("%s : unexpected key equality. Expected %v, got %v\n%v\n%v\n", name, success, !success, keyA, keyB)
+	if _, _, err := server.Start([]byte(testPassword), sid); err == nil || err.Error() != errSetupSIDTooShort.Error() {
+		t.Fatalf("expected error on nil sid for responder. Got %q, want %q", err, errSetupSIDTooShort)
 	}
 }
 
-func TestWrongIdentities(t *testing.T) {
-	test := []struct {
-		Name         string
-		IDa, PeerIDa string
-		IDb, PeerIDb string
-		password     string
-	}{
-		{
-			Name: "Wrong Identifier A",
-			IDa:  "a", PeerIDa: "abc",
-			IDb: "b", PeerIDb: "bcd",
-			password: "secret",
-		},
-		{
-			Name: "Wrong Identifier B",
-			IDa:  "a", PeerIDa: "abc",
-			IDb: "b", PeerIDb: "bcd",
-			password: "secret",
-		},
-		{
-			Name: "Mirrored IDs",
-			IDa:  "a", PeerIDa: "b",
-			IDb: "a", PeerIDb: "b",
-			password: "secret",
-		},
-		{
-			Name: "Concatenated IDs",
-			IDa:  "ax", PeerIDa: "b",
-			IDb: "xb", PeerIDb: "a",
-			password: "secret",
-		},
+func TestCPace_WrongSid(t *testing.T) {
+	i := defaultInfo()
+	initiator := i.New(Initiator)
+	responder := i.New(Responder)
+
+	csid := utils.RandomBytes(minSidLength)
+	ssid := utils.RandomBytes(minSidLength)
+
+	epku, _, err := initiator.Start([]byte(testPassword), csid)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tt := range test {
-		tt := tt
-		t.Run(tt.Name, func(t *testing.T) {
-			ip := &Parameters{[]byte(tt.IDa), []byte(tt.PeerIDa), []byte(tt.password), nil, nil, encoding.Gob}
-			rp := &Parameters{[]byte(tt.IDb), []byte(tt.PeerIDb), []byte(tt.password), nil, nil, encoding.Gob}
+	epks, _, err := responder.Start([]byte(testPassword), ssid)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-			i := newTestCPace(pake.Initiator, ip, nil, t).(*CPace)
-			r := newTestCPace(pake.Responder, rp, nil, t).(*CPace)
+	serverSK, err := responder.Finish(epku)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-			fullTest(tt.Name, i, r, false, t)
-		})
+	clientSK, err := initiator.Finish(epks)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Equal(serverSK, clientSK) {
+		t.Fatal("Client and server keys are supposed to be different (different sid)")
 	}
 }
 
-func TestResults(t *testing.T) {
+func TestCPace_EmptyShare(t *testing.T) {
+	i := defaultInfo()
+	client := i.New(Initiator)
+	server := i.New(Responder)
+
+	if _, err := client.Finish(nil); err == nil || err.Error() != errNoEphemeralPubKey.Error() {
+		t.Fatalf("expected error on empty own public key. Got %q, want %q", err, errNoEphemeralPubKey)
+	}
+	if _, err := server.Finish(nil); err == nil || err.Error() != errNoEphemeralPubKey.Error() {
+		t.Fatalf("expected error on empty own public key. Got %q, want %q", err, errNoEphemeralPubKey)
+	}
+}
+
+func TestCPace_PeerElement(t *testing.T) {
+	i := defaultInfo()
+	client := i.New(Initiator)
+	server := i.New(Responder)
+	emptyPeerElement := []byte("")
+
+	_, sid, err := client.Start([]byte(testPassword), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = server.Start([]byte(testPassword), sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := errPeerElementNil.Error()
+	if _, err = client.Finish(nil); err == nil || err.Error() != want {
+		t.Fatalf("expected error on nil peerElement. Got %q, want %q", err, want)
+	}
+	if _, err = server.Finish(nil); err == nil || err.Error() != want {
+		t.Fatalf("expected error on nil peerElement. Got %q, want %q", err, want)
+	}
+	if _, err = client.Finish(emptyPeerElement); err == nil || err.Error() != want {
+		t.Fatalf("expected error on empty peerElement. Got %q, want %q", err, want)
+	}
+	if _, err = server.Finish(emptyPeerElement); err == nil || err.Error() != want {
+		t.Fatalf("expected error on empty peerElement. Got %q, want %q", err, want)
+	}
+
+	want = errPeerElementInvalid.Error()
+	invalidPeerElement := []byte("invalid")
+	if _, err = client.Finish(invalidPeerElement); err == nil || err.Error() != want {
+		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+	}
+	if _, err = server.Finish(invalidPeerElement); err == nil || err.Error() != want {
+		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+	}
+
+	want = errPeerElementIdentity.Error()
+	identity := i.Parameters.Group.Get(nil).Identity().Bytes()
+	if _, err = client.Finish(identity); err == nil || err.Error() != want {
+		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+	}
+	if _, err = server.Finish(identity); err == nil || err.Error() != want {
+		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+	}
+}
+
+func TestCPace(t *testing.T) {
+	p := defaultParameters()
+
 	tests := []struct {
 		Name                 string
 		IDa, IDb             string
@@ -538,14 +232,14 @@ func TestResults(t *testing.T) {
 		Success              bool
 	}{
 		{
-			Name: "Valid, no ad, no sid",
+			Name: "Valid, no ad",
 			IDa:  "a", IDb: "b",
 			PasswordA: "secret", PasswordB: "secret",
 			AdA: "", AdB: "",
 			Success: true,
 		},
 		{
-			Name: "Valid, with ad, no sid",
+			Name: "Valid, with ad",
 			IDa:  "a", IDb: "b",
 			PasswordA: "secret", PasswordB: "secret",
 			AdA: "ad", AdB: "ad",
@@ -591,42 +285,312 @@ func TestResults(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.Name, func(t *testing.T) {
-			ip := &Parameters{[]byte(tt.IDa), []byte(tt.IDb), []byte(tt.PasswordA), nil, []byte(tt.AdA), encoding.Gob}
-			rp := &Parameters{[]byte(tt.IDb), []byte(tt.IDa), []byte(tt.PasswordB), nil, []byte(tt.AdB), encoding.Gob}
+			c := p.Init([]byte(tt.IDa), []byte(tt.IDb), []byte(tt.AdA)).New(Initiator)
+			s := p.Init([]byte(tt.IDa), []byte(tt.IDb), []byte(tt.AdB)).New(Responder)
 
-			i := newTestCPace(pake.Initiator, ip, nil, t).(*CPace)
-			r := newTestCPace(pake.Responder, rp, nil, t).(*CPace)
-
-			fullTest(tt.Name, i, r, tt.Success, t)
+			_, err := runCPace(c, s, []byte(tt.PasswordA), []byte(tt.PasswordB), nil, nil)
+			if (err == nil) != tt.Success {
+				t.Errorf("Unexpected result. Expected success %v, err %q", tt.Success, err)
+			}
 		})
 	}
 }
 
+/*
+	Benchmarks
+*/
+
 func BenchmarkNew(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		goodCPace(pake.Initiator, b)
+		_ = defaultInfo().New(Initiator)
 	}
 }
 
-func BenchmarkAuthenticate_Responder(b *testing.B) {
-	i := goodCPace(pake.Initiator, b)
-	m1, _ := i.Authenticate(nil)
+func BenchmarkStart(b *testing.B) {
+	c := defaultInfo().New(Initiator)
 
 	for i := 0; i < b.N; i++ {
-		r := goodCPace(pake.Responder, b)
-		m2, err := r.Authenticate(m1)
-
-		if m2 == nil || err != nil {
-			b.Error(err)
+		_, _, err := c.Start([]byte(testPassword), nil)
+		if err != nil {
+			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkAuthenticate_Full(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		init := goodCPace(pake.Initiator, b).(*CPace)
-		resp := goodCPace(pake.Responder, b).(*CPace)
+func BenchmarkFinish(b *testing.B) {
+	c := defaultInfo().New(Initiator)
+	s := defaultInfo().New(Responder)
+	epkc, sid, err := c.Start([]byte(testPassword), nil)
+	if err != nil {
+		b.Fatal(err)
+	}
 
-		fullTest("BenchmarkAuthenticate_Full", init, resp, true, b)
+	_, _, err = s.Start([]byte(testPassword), sid)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, err := s.Finish(epkc)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFull(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		c := defaultInfo().New(Initiator)
+		s := defaultInfo().New(Responder)
+		_, err := runCPace(c, s, []byte(testPassword), []byte(testPassword), nil, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+/*
+	Generate test vectors
+*/
+
+type ByteToHex []byte
+
+func (j ByteToHex) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hex.EncodeToString(j))
+}
+
+type testVector struct {
+	parameters `json:"Parameters"`
+	input      `json:"Input"`
+	output     `json:"Output"`
+}
+
+type parameters struct {
+	GroupName string                 `json:"HashToGroup"`
+	SuiteID   ciphersuite.Identifier `json:"SuiteID"`
+	Hash      string                 `json:"Hash"`
+}
+
+type input struct {
+	Ida             ByteToHex `json:"Ida"`
+	Idb             ByteToHex `json:"Idb"`
+	Ad              ByteToHex `json:"AD"`
+	Sid             ByteToHex `json:"SID"`
+	Password        ByteToHex `json:"Password"`
+	InitiatorScalar ByteToHex `json:"scalarA"`
+	ResponderScalar ByteToHex `json:"scalarB"`
+}
+
+type output struct {
+	DSI1       ByteToHex `json:"DSI1"`
+	DSI2       ByteToHex `json:"DSI2"`
+	H2GDst     ByteToHex `json:"HashToGroupDST"`
+	Epku       ByteToHex `json:"Epku"`
+	Epks       ByteToHex `json:"Epks"`
+	SessionKey ByteToHex `json:"SessionKey"`
+}
+
+func generateTestVector(t *testing.T, params *Parameters) testVector {
+	p := parameters{
+		GroupName: params.Group.String(),
+		SuiteID:   params.Group,
+		Hash:      params.Hash.String(),
+	}
+
+	i := params.Init([]byte(testIDInit),
+		[]byte(testIDResponder),
+		[]byte(testAD))
+	c := i.New(Initiator)
+	s := i.New(Responder)
+	pwd := []byte(testPassword)
+	sid := utils.RandomBytes(minSidLength)
+	sk, err := runCPace(c, s, pwd, pwd, sid, sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	in := input{
+		Ida:             []byte(testIDInit),
+		Idb:             []byte(testIDResponder),
+		Ad:              []byte(testAD),
+		Sid:             sid,
+		Password:        pwd,
+		InitiatorScalar: c.secret.Bytes(),
+		ResponderScalar: s.secret.Bytes(),
+	}
+
+	out := output{
+		DSI1:       i.Dsi1,
+		DSI2:       i.Dsi2,
+		H2GDst:     []byte(c.group.DST()),
+		Epku:       c.epk,
+		Epks:       s.epk,
+		SessionKey: sk,
+	}
+
+	return testVector{
+		parameters: p,
+		input:      in,
+		output:     out,
+	}
+}
+
+func generateAllVectors(t *testing.T) []testVector {
+	params := genTestParams()
+	vectors := make([]testVector, len(params))
+
+	for i, p := range params {
+		vectors[i] = generateTestVector(t, p)
+	}
+
+	return vectors
+}
+
+func TestGenerateVectorFile(t *testing.T) {
+	dir := "./tests"
+	file := "allVectors.json"
+
+	vectors := generateAllVectors(t)
+	content, _ := json.MarshalIndent(vectors, "", "  ")
+	_ = ioutil.WriteFile(path.Join(dir, file), content, 0o644)
+}
+
+/*
+	Test test vectors
+*/
+
+func hashToHash(h string) hash.Identifier {
+	switch h {
+	case "SHA256":
+		return hash.SHA256
+	case "SHA512":
+		return hash.SHA512
+	case "SHA3-256":
+		return hash.SHA3_256
+	case "SHA3-512":
+		return hash.SHA3_512
+	case "SHAKE128":
+		return hash.SHAKE128
+	case "SHAKE256":
+		return hash.SHAKE256
+	case "BLAKE2XB":
+		return hash.BLAKE2XB
+	case "BLAKE2XS":
+		return hash.BLAKE2XS
+	default:
+		return 0
+	}
+}
+
+type testVectors []*testVector
+
+func (v *testVector) test(t *testing.T) {
+	p := &Parameters{
+		Group: v.SuiteID,
+		Hash:  hashToHash(v.Hash),
+	}
+
+	i := p.Init(v.Ida, v.Idb, v.Ad)
+	if !bytes.Equal(v.DSI2, i.Dsi2) {
+		t.Fatalf("invalid DSI1. Vector %q, got %q", v.DSI2, i.Dsi2)
+	}
+	if !bytes.Equal(v.DSI2, i.Dsi2) {
+		t.Fatalf("invalid DSI2. Vector %q, got %q", v.DSI2, i.Dsi2)
+	}
+
+	c := i.New(Initiator)
+	s := i.New(Responder)
+
+	if !bytes.Equal(v.H2GDst, []byte(c.group.DST())) {
+		t.Fatalf("invalid HashToGroup DST in initiator. Vector %q, got %q", v.H2GDst, []byte(c.group.DST()))
+	}
+	if !bytes.Equal(v.H2GDst, []byte(s.group.DST())) {
+		t.Fatalf("invalid HashToGroup DST in responder. Vector %q, got %q", v.H2GDst, []byte(s.group.DST()))
+	}
+
+	var err error
+
+	c.secret, err = c.group.NewScalar().Decode(v.InitiatorScalar)
+	if err != nil {
+		t.Fatalf("error decoding initiator scalar : %v", err)
+	}
+
+	s.secret, err = c.group.NewScalar().Decode(v.ResponderScalar)
+	if err != nil {
+		t.Fatalf("error decoding responder scalar : %v", err)
+	}
+
+	epku, _, err := c.Start(v.Password, v.Sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(v.Epku, epku) {
+		t.Fatalf("invalid epku. Vector %q, got %q", v.Epku, epku)
+	}
+
+	epks, _, err := s.Start(v.Password, v.Sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(v.Epks, epks) {
+		t.Fatalf("invalid epks. Vector %q, got %q", v.Epks, epks)
+	}
+
+	iSK, err := c.Finish(epks)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(v.SessionKey, iSK) {
+		t.Fatalf("invalid initiator session key. Vector %q, got %q", v.SessionKey, iSK)
+	}
+
+	rSK, err := s.Finish(epku)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(v.SessionKey, rSK) {
+		t.Fatalf("invalid responder session key. Vector %q, got %q", v.SessionKey, rSK)
+	}
+}
+
+func TestCPaceVectors(t *testing.T) {
+	if err := filepath.Walk("tests",
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			file, errOpen := os.Open(path)
+			if errOpen != nil {
+				return errOpen
+			}
+
+			defer file.Close()
+
+			val, errRead := ioutil.ReadAll(file)
+			if errRead != nil {
+				return errRead
+			}
+
+			var v testVectors
+			errJSON := json.Unmarshal(val, &v)
+			if errJSON != nil {
+				return errJSON
+			}
+
+			for _, tv := range v {
+				t.Run(fmt.Sprintf("%s - %s", tv.GroupName, tv.Hash), tv.test)
+			}
+			return nil
+		}); err != nil {
+		t.Fatalf("error opening test vectors: %v", err)
 	}
 }
