@@ -22,6 +22,9 @@ const (
 	testIDResponder = "responder"
 	testAD          = "ad"
 	testPassword    = "password"
+
+	testErrNilResponderSidFmt = "expected error on nil sid for responder. Got %q, want %q"
+	testErrInvalidPeerElementFmt = "expected error on invalid peerElement. Got %q, want %q"
 )
 
 /*
@@ -109,7 +112,7 @@ func TestCPaceResponderNilSid(t *testing.T) {
 	i := defaultInfo()
 	s := i.New(Responder)
 	if _, _, err := s.Start([]byte(testPassword), nil); err == nil || err.Error() != errSetupSIDNil.Error() {
-		t.Fatalf("expected error on nil sid for responder. Got %q, want %q", err, errSetupSIDNil)
+		t.Fatalf(testErrNilResponderSidFmt, err, errSetupSIDNil)
 	}
 }
 
@@ -119,10 +122,10 @@ func TestCPaceShortSid(t *testing.T) {
 	client := i.New(Initiator)
 	server := i.New(Responder)
 	if _, _, err := client.Start([]byte(testPassword), sid); err == nil || err.Error() != errSetupSIDTooShort.Error() {
-		t.Fatalf("expected error on nil sid for responder. Got %q, want %q", err, errSetupSIDTooShort)
+		t.Fatalf(testErrNilResponderSidFmt, err, errSetupSIDTooShort)
 	}
 	if _, _, err := server.Start([]byte(testPassword), sid); err == nil || err.Error() != errSetupSIDTooShort.Error() {
-		t.Fatalf("expected error on nil sid for responder. Got %q, want %q", err, errSetupSIDTooShort)
+		t.Fatalf(testErrNilResponderSidFmt, err, errSetupSIDTooShort)
 	}
 }
 
@@ -205,19 +208,19 @@ func TestCPacePeerElement(t *testing.T) {
 	want = errPeerElementInvalid.Error()
 	invalidPeerElement := []byte("invalid")
 	if _, err = client.Finish(invalidPeerElement); err == nil || err.Error() != want {
-		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
 	}
 	if _, err = server.Finish(invalidPeerElement); err == nil || err.Error() != want {
-		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
 	}
 
 	want = errPeerElementIdentity.Error()
 	identity := i.Parameters.Group.Get(nil).Identity().Bytes()
 	if _, err = client.Finish(identity); err == nil || err.Error() != want {
-		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
 	}
 	if _, err = server.Finish(identity); err == nil || err.Error() != want {
-		t.Fatalf("expected error on invalid peerElement. Got %q, want %q", err, want)
+		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
 	}
 }
 
@@ -568,20 +571,13 @@ func TestCPaceVectors(t *testing.T) {
 				return nil
 			}
 
-			file, errOpen := os.Open(path)
-			if errOpen != nil {
-				return errOpen
-			}
-
-			defer file.Close()
-
-			val, errRead := ioutil.ReadAll(file)
-			if errRead != nil {
-				return errRead
+			contents, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
 			}
 
 			var v testVectors
-			errJSON := json.Unmarshal(val, &v)
+			errJSON := json.Unmarshal(contents, &v)
 			if errJSON != nil {
 				return errJSON
 			}
