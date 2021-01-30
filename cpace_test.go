@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bytemare/cryptotools/group/ciphersuite"
@@ -23,7 +24,7 @@ const (
 	testAD          = "ad"
 	testPassword    = "password"
 
-	testErrNilResponderSidFmt = "expected error on nil sid for responder. Got %q, want %q"
+	testErrNilResponderSidFmt    = "expected error on nil sid for responder. Got %q, want %q"
 	testErrInvalidPeerElementFmt = "expected error on invalid peerElement. Got %q, want %q"
 )
 
@@ -362,6 +363,18 @@ func (j ByteToHex) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hex.EncodeToString(j))
 }
 
+func (j *ByteToHex) UnmarshalJSON(b []byte) error {
+	bs := strings.Trim(string(b), "\"")
+
+	dst, err := hex.DecodeString(bs)
+	if err != nil {
+		return err
+	}
+
+	*j = dst
+	return nil
+}
+
 type testVector struct {
 	parameters `json:"Parameters"`
 	input      `json:"Input"`
@@ -400,34 +413,34 @@ func generateTestVector(t *testing.T, params *Parameters) testVector {
 		Hash:      params.Hash.String(),
 	}
 
-	i := params.Init([]byte(testIDInit),
+	info := params.Init([]byte(testIDInit),
 		[]byte(testIDResponder),
 		[]byte(testAD))
-	c := i.New(Initiator)
-	s := i.New(Responder)
+	i := info.New(Initiator)
+	r := info.New(Responder)
 	pwd := []byte(testPassword)
 	sid := utils.RandomBytes(minSidLength)
-	sk, err := runCPace(c, s, pwd, pwd, sid, sid)
+	sk, err := runCPace(i, r, pwd, pwd, sid, sid)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	in := input{
-		Ida:             []byte(testIDInit),
-		Idb:             []byte(testIDResponder),
-		Ad:              []byte(testAD),
+		Ida:             ByteToHex(testIDInit),
+		Idb:             ByteToHex(testIDResponder),
+		Ad:              ByteToHex(testAD),
 		Sid:             sid,
 		Password:        pwd,
-		InitiatorScalar: c.secret.Bytes(),
-		ResponderScalar: s.secret.Bytes(),
+		InitiatorScalar: i.Scalar(),
+		ResponderScalar: r.Scalar(),
 	}
 
 	out := output{
-		DSI1:       i.Dsi1,
-		DSI2:       i.Dsi2,
-		H2GDst:     []byte(c.group.DST()),
-		Epku:       c.epk,
-		Epks:       s.epk,
+		DSI1:       info.Dsi1,
+		DSI2:       info.Dsi2,
+		H2GDst:     ByteToHex(i.group.DST()),
+		Epku:       i.epk,
+		Epks:       r.epk,
 		SessionKey: sk,
 	}
 
@@ -493,37 +506,35 @@ func (v *testVector) test(t *testing.T) {
 		Hash:  hashToHash(v.Hash),
 	}
 
-	i := p.Init(v.Ida, v.Idb, v.Ad)
-	if !bytes.Equal(v.DSI2, i.Dsi2) {
-		t.Fatalf("invalid DSI1. Vector %q, got %q", v.DSI2, i.Dsi2)
+	info := p.Init(v.Ida, v.Idb, v.Ad)
+	if !bytes.Equal(v.DSI2, info.Dsi2) {
+		t.Fatalf("invalid DSI1. Vector %q, got %q", v.DSI2, info.Dsi2)
 	}
-	if !bytes.Equal(v.DSI2, i.Dsi2) {
-		t.Fatalf("invalid DSI2. Vector %q, got %q", v.DSI2, i.Dsi2)
+	if !bytes.Equal(v.DSI2, info.Dsi2) {
+		t.Fatalf("invalid DSI2. Vector %q, got %q", v.DSI2, info.Dsi2)
 	}
 
-	c := i.New(Initiator)
-	s := i.New(Responder)
+	i := info.New(Initiator)
+	r := info.New(Responder)
 
-	if !bytes.Equal(v.H2GDst, []byte(c.group.DST())) {
-		t.Fatalf("invalid HashToGroup DST in initiator. Vector %q, got %q", v.H2GDst, []byte(c.group.DST()))
+	if !bytes.Equal(v.H2GDst, []byte(i.group.DST())) {
+		t.Fatalf("invalid HashToGroup DST in initiator. Vector %q, got %q", v.H2GDst, []byte(i.group.DST()))
 	}
-	if !bytes.Equal(v.H2GDst, []byte(s.group.DST())) {
-		t.Fatalf("invalid HashToGroup DST in responder. Vector %q, got %q", v.H2GDst, []byte(s.group.DST()))
+	if !bytes.Equal(v.H2GDst, []byte(r.group.DST())) {
+		t.Fatalf("invalid HashToGroup DST in responder. Vector %q, got %q", v.H2GDst, []byte(r.group.DST()))
 	}
 
 	var err error
 
-	c.secret, err = c.group.NewScalar().Decode(v.InitiatorScalar)
-	if err != nil {
+	if err := i.SetScalar(v.InitiatorScalar); err != nil {
 		t.Fatalf("error decoding initiator scalar : %v", err)
 	}
 
-	s.secret, err = c.group.NewScalar().Decode(v.ResponderScalar)
-	if err != nil {
+	if err := r.SetScalar(v.ResponderScalar); err != nil {
 		t.Fatalf("error decoding responder scalar : %v", err)
 	}
 
-	epku, _, err := c.Start(v.Password, v.Sid)
+	epku, _, err := i.Start(v.Password, v.Sid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -532,7 +543,7 @@ func (v *testVector) test(t *testing.T) {
 		t.Fatalf("invalid epku. Vector %q, got %q", v.Epku, epku)
 	}
 
-	epks, _, err := s.Start(v.Password, v.Sid)
+	epks, _, err := r.Start(v.Password, v.Sid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -541,7 +552,7 @@ func (v *testVector) test(t *testing.T) {
 		t.Fatalf("invalid epks. Vector %q, got %q", v.Epks, epks)
 	}
 
-	iSK, err := c.Finish(epks)
+	iSK, err := i.Finish(epks)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -550,7 +561,7 @@ func (v *testVector) test(t *testing.T) {
 		t.Fatalf("invalid initiator session key. Vector %q, got %q", v.SessionKey, iSK)
 	}
 
-	rSK, err := s.Finish(epku)
+	rSK, err := r.Finish(epku)
 	if err != nil {
 		t.Fatal(err)
 	}
