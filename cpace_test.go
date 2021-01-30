@@ -105,7 +105,7 @@ func TestCPaceDefault(t *testing.T) {
 	}
 }
 
-func TestCPace_ResponderNilSid(t *testing.T) {
+func TestCPaceResponderNilSid(t *testing.T) {
 	i := defaultInfo()
 	s := i.New(Responder)
 	if _, _, err := s.Start([]byte(testPassword), nil); err == nil || err.Error() != errSetupSIDNil.Error() {
@@ -113,7 +113,7 @@ func TestCPace_ResponderNilSid(t *testing.T) {
 	}
 }
 
-func TestCPace_ShortSid(t *testing.T) {
+func TestCPaceShortSid(t *testing.T) {
 	i := defaultInfo()
 	sid := []byte("short sid")
 	client := i.New(Initiator)
@@ -126,7 +126,7 @@ func TestCPace_ShortSid(t *testing.T) {
 	}
 }
 
-func TestCPace_WrongSid(t *testing.T) {
+func TestCPaceWrongSid(t *testing.T) {
 	i := defaultInfo()
 	initiator := i.New(Initiator)
 	responder := i.New(Responder)
@@ -159,7 +159,7 @@ func TestCPace_WrongSid(t *testing.T) {
 	}
 }
 
-func TestCPace_EmptyShare(t *testing.T) {
+func TestCPaceEmptyShare(t *testing.T) {
 	i := defaultInfo()
 	client := i.New(Initiator)
 	server := i.New(Responder)
@@ -172,7 +172,7 @@ func TestCPace_EmptyShare(t *testing.T) {
 	}
 }
 
-func TestCPace_PeerElement(t *testing.T) {
+func TestCPacePeerElement(t *testing.T) {
 	i := defaultInfo()
 	client := i.New(Initiator)
 	server := i.New(Responder)
