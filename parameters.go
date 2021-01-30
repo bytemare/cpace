@@ -7,6 +7,8 @@ import (
 	"github.com/bytemare/cryptotools/hash"
 )
 
+const dsiFormat = "%s%s-%d" // "CPace[Group]-[i]"
+
 // Parameters identifies the components of a Ciphersuite.
 type Parameters struct {
 	Group ciphersuite.Identifier `json:"group"`
@@ -20,8 +22,8 @@ func (p *Parameters) Init(ida, idb, ad []byte) *Info {
 		Ida:        ida,
 		Idb:        idb,
 		Ad:         ad,
-		Dsi1:       []byte(fmt.Sprintf("%s%s-%d", cpace, p.Group, 1)),
-		Dsi2:       []byte(fmt.Sprintf("%s%s-%d", cpace, p.Group, 2)),
+		Dsi1:       []byte(fmt.Sprintf(dsiFormat, cpace, p.Group, 1)),
+		Dsi2:       []byte(fmt.Sprintf(dsiFormat, cpace, p.Group, 2)),
 	}
 }
 

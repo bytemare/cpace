@@ -21,7 +21,7 @@ const (
 
 type state struct {
 	epk    []byte
-	secret group.Scalar
+	scalar group.Scalar
 }
 
 // CPace holds information about the party's state, and offers the protocol functions.
@@ -30,13 +30,6 @@ type CPace struct {
 	group group.Group
 	info  Info
 	state
-}
-
-func (c *CPace) publicShare(password, sid []byte) []byte {
-	c.secret = c.group.NewScalar().Random()
-	m := c.group.HashToGroup(c.info.Dsi1, password, sid, c.info.Ida, c.info.Idb, c.info.Ad)
-
-	return m.Mult(c.secret).Bytes()
 }
 
 func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
@@ -53,7 +46,7 @@ func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
 		return nil, errPeerElementInvalid
 	}
 
-	k := peer.Mult(c.secret)
+	k := peer.Mult(c.scalar)
 	if k.IsIdentity() {
 		return nil, errPeerElementIdentity
 	}
@@ -106,7 +99,12 @@ func (c *CPace) Start(password, sid []byte) (epk, ssid []byte, err error) {
 		return nil, nil, err
 	}
 
-	c.epk = c.publicShare(password, sid)
+	if c.scalar == nil {
+		c.scalar = c.group.NewScalar().Random()
+	}
+
+	m := c.group.HashToGroup(c.info.Dsi1, password, sid, c.info.Ida, c.info.Idb, c.info.Ad)
+	c.epk = m.Mult(c.scalar).Bytes()
 
 	return c.epk, sid, nil
 }
@@ -114,4 +112,17 @@ func (c *CPace) Start(password, sid []byte) (epk, ssid []byte, err error) {
 // Finish uses the peerElement and the internal state to derive and return the session secret.
 func (c *CPace) Finish(peerElement []byte) ([]byte, error) {
 	return c.sessionKey(peerElement)
+}
+
+// SetScalar sets the internal secret scalar to s. If s is not successfully deserialized to the set group, this function
+// returns an error.
+func (c *CPace) SetScalar(s []byte) (err error) {
+	c.scalar, err = c.group.NewScalar().Decode(s)
+	return err
+}
+
+// Scalar returns the internal secret scalar generated in Start(). If Start() hasn't been called or didn't succeed,
+// this function returns nil.
+func (c *CPace) Scalar() []byte {
+	return c.scalar.Bytes()
 }
