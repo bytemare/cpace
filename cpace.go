@@ -76,7 +76,6 @@ func (c *CPace) transcript(k, peerElement []byte) []byte {
 		epkr = c.epk
 	}
 
-	// todo: could be calculated at setup if point length is known: len(dsi2) + 3 * len(element)
 	tLen := len(c.info.Dsi2) + len(k) + len(c.epk) + len(peerElement)
 
 	return utils.Concatenate(tLen, c.info.Dsi2, k, epki, epkr)
