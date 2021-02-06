@@ -8,8 +8,10 @@ import (
 	"github.com/bytemare/cryptotools/hash"
 )
 
-var testResponder, testInitiator *CPace
-var testResponderSK []byte
+var (
+	testResponder, testInitiator *CPace
+	testResponderSK              []byte
+)
 
 func receiveFromResponder(epkc, sid []byte) []byte {
 	clientID := []byte("client")
@@ -19,7 +21,7 @@ func receiveFromResponder(epkc, sid []byte) []byte {
 		Group: ciphersuite.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
-	testResponder = params.Init(clientID, serverID, nil).New(Responder)
+	testResponder = params.Init(clientID, serverID, nil).Responder()
 	epks, _, err := testResponder.Start(password, sid)
 	if err != nil {
 		panic(err)
@@ -41,7 +43,7 @@ func receiveFromClient() (epku, sid []byte) {
 		Group: ciphersuite.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
-	testInitiator = params.Init(clientID, serverID, nil).New(Initiator)
+	testInitiator = params.Init(clientID, serverID, nil).Initiator()
 	epku, sid, err := testInitiator.Start(password, nil)
 	if err != nil {
 		panic(err)
@@ -73,7 +75,7 @@ func ExampleInitiator() {
 	}
 
 	// Prepare common communication info, and directly derive the client
-	client := params.Init(clientID, serverID, ad).New(Initiator)
+	client := params.Init(clientID, serverID, ad).Initiator()
 
 	// Client starts. If no sid is given for the client, the function returns a new sid.
 	epku, sid, err := client.Start(password, sid)
@@ -111,7 +113,7 @@ func ExampleResponder() {
 	}
 
 	// Prepare common communication info, and directly derive the responder
-	responder := params.Init(clientID, serverID, ad).New(Responder)
+	responder := params.Init(clientID, serverID, ad).Responder()
 
 	// The responder either already knows the sid, or receives it from the initiator, along with epku
 	epku, sid := receiveFromClient()
@@ -141,7 +143,7 @@ func ExampleCPace() {
 	clientID := []byte("client")
 	serverID := []byte("server")
 	password := []byte("password")
-	var ad []byte = nil
+	var ad []byte = nil // this can securely be nil
 
 	// Set cryptographic parameters
 	params := &Parameters{
@@ -153,8 +155,8 @@ func ExampleCPace() {
 	info := params.Init(clientID, serverID, ad)
 
 	// Get a client and a server
-	client := info.New(Initiator)
-	server := info.New(Responder)
+	client := info.Initiator()
+	server := info.Responder()
 
 	// Client starts. If no sid is given for the client, the function returns a new sid.
 	epku, sid, err := client.Start(password, nil)

@@ -19,17 +19,13 @@ const (
 	minSidLength = 16
 )
 
-type state struct {
-	epk    []byte
-	scalar group.Scalar
-}
-
 // CPace holds information about the party's state, and offers the protocol functions.
 type CPace struct {
-	role  Role
-	group group.Group
-	info  Info
-	state
+	role       Role
+	group      group.Group
+	parameters *Parameters
+	epk        []byte
+	scalar     group.Scalar
 }
 
 func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
@@ -52,7 +48,7 @@ func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
 	}
 
 	t := c.transcript(k.Bytes(), peerElement)
-	h := c.info.Hash.Get()
+	h := c.parameters.Hash.Get()
 
 	return h.Hash(h.OutputSize(), t), err
 }
@@ -69,9 +65,9 @@ func (c *CPace) transcript(k, peerElement []byte) []byte {
 		epkr = c.epk
 	}
 
-	tLen := len(c.info.Dsi2) + len(k) + len(c.epk) + len(peerElement)
+	tLen := len(c.parameters.Dsi2) + len(k) + len(c.epk) + len(peerElement)
 
-	return utils.Concatenate(tLen, c.info.Dsi2, k, epki, epkr)
+	return utils.Concatenate(tLen, c.parameters.Dsi2, k, epki, epkr)
 }
 
 // checkSid verifies the session id, and generates one for the initiator if none provided.
@@ -103,7 +99,7 @@ func (c *CPace) Start(password, sid []byte) (epk, ssid []byte, err error) {
 		c.scalar = c.group.NewScalar().Random()
 	}
 
-	m := c.group.HashToGroup(c.info.Dsi1, password, sid, c.info.Ida, c.info.Idb, c.info.Ad)
+	m := c.group.HashToGroup(c.parameters.Dsi1, password, sid, c.parameters.Ida, c.parameters.Idb, c.parameters.Ad)
 	c.epk = m.Mult(c.scalar).Bytes()
 
 	return c.epk, sid, nil

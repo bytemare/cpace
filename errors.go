@@ -9,6 +9,11 @@ import (
 var (
 	errSetupSIDNil      = errors.New("setup - session id is nil")
 	errSetupSIDTooShort = fmt.Errorf("setup - session id is too short (< %d)", minSidLength)
+
+	errEncodingShort       = errors.New("parameter encoding is too short")
+	errEncodingCiphersuite = errors.New("ciphersuite identifier not recognised or unavailable")
+	errEncodingHash        = errors.New("hash identifier not recognised or unavailable")
+	errDecodingBounds      = errors.New("array index out of bounds")
 )
 
 // Errors resulting from invalid peer data.
