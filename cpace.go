@@ -29,14 +29,6 @@ type CPace struct {
 }
 
 func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
-	if len(c.epk) == 0 {
-		return nil, errNoEphemeralPubKey
-	}
-
-	if len(peerElement) == 0 {
-		return nil, errPeerElementNil
-	}
-
 	peer, err := c.group.NewElement().Decode(peerElement)
 	if err != nil {
 		return nil, errPeerElementInvalid
@@ -107,6 +99,14 @@ func (c *CPace) Start(password, sid []byte) (epk, ssid []byte, err error) {
 
 // Finish uses the peerElement and the internal state to derive and return the session secret.
 func (c *CPace) Finish(peerElement []byte) ([]byte, error) {
+	if len(c.epk) == 0 {
+		return nil, errNoEphemeralPubKey
+	}
+
+	if len(peerElement) == 0 {
+		return nil, errPeerElementNil
+	}
+
 	return c.sessionKey(peerElement)
 }
 
