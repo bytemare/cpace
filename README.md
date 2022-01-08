@@ -30,8 +30,8 @@ package cpace
 
 import (
     "github.com/bytemare/cpace"
-    "github.com/bytemare/cryptotools/group/ciphersuite"
-    "github.com/bytemare/cryptotools/hash"
+    "github.com/bytemare/crypto/group"
+    "github.com/bytemare/crypto/hash"
 )
 
 params := &cpace.Parameters{
@@ -75,8 +75,8 @@ package cpace
 
 import (
     "github.com/bytemare/cpace"
-    "github.com/bytemare/cryptotools/group/ciphersuite"
-    "github.com/bytemare/cryptotools/hash"
+    "github.com/bytemare/crypto/group"
+    "github.com/bytemare/crypto/hash"
 )
 
 clientID := []byte("client")
@@ -129,7 +129,7 @@ if err != nil {
 
 ## Under the hood
 
-All cryptographic operations can be found in the [cryptotools package](https://github.com/bytemare/cryptotools), which itself uses either the standard library or tested and proved external libraries.
+All cryptographic operations can be found in the [crypto package](https://github.com/bytemare/crypto), which itself uses either the standard library or tested and proved external libraries.
 
 ## Deploy it
 
