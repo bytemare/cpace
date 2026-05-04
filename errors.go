@@ -25,3 +25,11 @@ var (
 
 // Other errors.
 var errNoEphemeralPubKey = errors.New("public point not set - not initiated? ")
+
+var (
+	// ErrInputEmpty happens when the input is nil or empty.
+	ErrInputEmpty = errors.New("nil or empty input")
+
+	// ErrInputTooLarge happens when the input is longer than 4 bytes.
+	ErrInputTooLarge = errors.New("input too large for integer")
+)

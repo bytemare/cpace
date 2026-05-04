@@ -1,8 +1,10 @@
 package cpace
 
 import (
-	"github.com/bytemare/cryptotools/group"
-	"github.com/bytemare/cryptotools/utils"
+	"crypto/rand"
+	"slices"
+
+	"github.com/bytemare/ecc"
 )
 
 // Role in the protocol.
@@ -22,27 +24,26 @@ const (
 // CPace holds information about the party's state, and offers the protocol functions.
 type CPace struct {
 	role       Role
-	group      group.Group
+	group      ecc.Group
 	parameters *Parameters
 	epk        []byte
-	scalar     group.Scalar
+	scalar     *ecc.Scalar
 }
 
 func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
-	peer, err := c.group.NewElement().Decode(peerElement)
-	if err != nil {
+	peer := c.group.NewElement()
+	if err := c.group.NewElement().Decode(peerElement); err != nil {
 		return nil, errPeerElementInvalid
 	}
 
-	k := peer.Mult(c.scalar)
+	k := peer.Multiply(c.scalar)
 	if k.IsIdentity() {
 		return nil, errPeerElementIdentity
 	}
 
-	t := c.transcript(k.Bytes(), peerElement)
-	h := c.parameters.Hash.Get()
+	t := c.transcript(k.Encode(), peerElement)
 
-	return h.Hash(h.OutputSize(), t), err
+	return c.parameters.Hash.Hash(t), nil
 }
 
 func (c *CPace) transcript(k, peerElement []byte) []byte {
@@ -58,8 +59,13 @@ func (c *CPace) transcript(k, peerElement []byte) []byte {
 	}
 
 	tLen := len(c.parameters.Dsi2) + len(k) + len(c.epk) + len(peerElement)
+	out := make([]byte, tLen)
+	copy(out, c.parameters.Dsi2)
+	copy(out[len(c.parameters.Dsi2):], k)
+	copy(out[len(c.parameters.Dsi2)+len(k):], epki)
+	copy(out[len(c.parameters.Dsi2)+len(k)+len(epki):], epkr)
 
-	return utils.Concatenate(tLen, c.parameters.Dsi2, k, epki, epkr)
+	return out
 }
 
 // checkSid verifies the session id, and generates one for the initiator if none provided.
@@ -68,7 +74,10 @@ func checkSid(role Role, sid []byte) ([]byte, error) {
 	case l == 0:
 		// If none is given for the Responder, we'll take it from the initiator's first message
 		if role == Initiator {
-			return utils.RandomBytes(minSidLength), nil
+			var out [minSidLength]byte
+			_, _ = rand.Read(out[:]) //nolint:errcheck // Documented to never return an error.
+
+			return out[:], nil
 		}
 
 		return nil, errSetupSIDNil
@@ -91,8 +100,10 @@ func (c *CPace) Start(password, sid []byte) (epk, ssid []byte, err error) {
 		c.scalar = c.group.NewScalar().Random()
 	}
 
-	m := c.group.HashToGroup(c.parameters.Dsi1, password, sid, c.parameters.Ida, c.parameters.Idb, c.parameters.Ad)
-	c.epk = m.Mult(c.scalar).Bytes()
+	h := slices.Concat(password, sid, c.parameters.Ida, c.parameters.Idb, c.parameters.Ad)
+	// dst := []byte(cpace + p.Group.String())
+	m := c.group.HashToGroup(c.parameters.Dsi1, h)
+	c.epk = m.Multiply(c.scalar).Encode()
 
 	return c.epk, sid, nil
 }
@@ -113,12 +124,15 @@ func (c *CPace) Finish(peerElement []byte) ([]byte, error) {
 // SetScalar sets the internal secret scalar to s. If s is not successfully deserialized to the set group, this function
 // returns an error.
 func (c *CPace) SetScalar(s []byte) (err error) {
-	c.scalar, err = c.group.NewScalar().Decode(s)
-	return err
+	if c.scalar == nil {
+		c.scalar = c.group.NewScalar()
+	}
+
+	return c.scalar.Decode(s)
 }
 
 // Scalar returns the internal secret scalar generated in Start(). If Start() hasn't been called or didn't succeed,
 // this function returns nil.
 func (c *CPace) Scalar() []byte {
-	return c.scalar.Bytes()
+	return c.scalar.Encode()
 }

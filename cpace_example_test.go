@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bytemare/cryptotools/group/ciphersuite"
-	"github.com/bytemare/cryptotools/hash"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/hash"
 )
 
 var (
@@ -18,7 +18,7 @@ func receiveFromResponder(epkc, sid []byte) []byte {
 	serverID := []byte("server")
 	password := []byte("password")
 	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 	testResponder = params.Init(clientID, serverID, nil).Responder()
@@ -40,7 +40,7 @@ func receiveFromClient() (epku, sid []byte) {
 	serverID := []byte("server")
 	password := []byte("password")
 	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 	testInitiator = params.Init(clientID, serverID, nil).Initiator()
@@ -70,7 +70,7 @@ func ExampleInitiator() {
 
 	// Set cryptographic parameters
 	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 
@@ -108,7 +108,7 @@ func ExampleResponder() {
 
 	// Set cryptographic parameters
 	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 
@@ -147,7 +147,7 @@ func ExampleCPace() {
 
 	// Set cryptographic parameters
 	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 

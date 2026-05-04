@@ -2,6 +2,7 @@ package cpace
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -13,12 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bytemare/cryptotools/encoding"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/bytemare/cryptotools/group/ciphersuite"
-	"github.com/bytemare/cryptotools/hash"
-	"github.com/bytemare/cryptotools/utils"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/hash"
 )
 
 const (
@@ -37,7 +34,7 @@ const (
 
 func defaultParameters() *Parameters {
 	return &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHAKE128,
 	}
 }
@@ -47,8 +44,8 @@ func defaultInitialised() *Parameters {
 }
 
 func genTestParams() []*Parameters {
-	testGroups := []ciphersuite.Identifier{ciphersuite.Ristretto255Sha512, ciphersuite.Curve25519Sha512, ciphersuite.P256Sha256}
-	testHash := []hash.Identifier{hash.SHA256, hash.SHA512, hash.SHAKE128}
+	testGroups := []ecc.Group{ecc.Ristretto255Sha512, ecc.P256Sha256}
+	testHash := []hash.Hash{hash.SHA256, hash.SHAKE128}
 
 	l := len(testGroups) * len(testHash)
 	p := make([]*Parameters, l)
@@ -107,8 +104,11 @@ func TestCPaceDefault(t *testing.T) {
 			info := p.Init([]byte(testIDInit), []byte(testIDResponder), []byte(testAD))
 			client := info.new(Initiator)
 			server := info.new(Responder)
+
 			_, err := runCPace(client, server, []byte(testPassword), []byte(testPassword), nil, nil)
-			assert.NoError(t, err)
+			if err != nil {
+				t.Fatalf("unexpected error: %s", err)
+			}
 		})
 	}
 }
@@ -139,20 +139,29 @@ func TestCPaceWrongSid(t *testing.T) {
 	initiator := i.new(Initiator)
 	responder := i.new(Responder)
 
-	csid := utils.RandomBytes(minSidLength)
-	ssid := utils.RandomBytes(minSidLength)
+	var csid, ssid [minSidLength]byte
+	_, _ = rand.Read(csid[:]) //nolint:errcheck // Documented to never return an error.
+	_, _ = rand.Read(ssid[:]) //nolint:errcheck // Documented to never return an error.
 
-	epku, _, err := initiator.Start([]byte(testPassword), csid)
-	assert.NoError(t, err)
+	epku, _, err := initiator.Start([]byte(testPassword), csid[:])
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
-	epks, _, err := responder.Start([]byte(testPassword), ssid)
-	assert.NoError(t, err)
+	epks, _, err := responder.Start([]byte(testPassword), ssid[:])
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	serverSK, err := responder.Finish(epku)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	clientSK, err := initiator.Finish(epks)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	if bytes.Equal(serverSK, clientSK) {
 		t.Fatal("Client and server keys are supposed to be different (different sid)")
@@ -179,10 +188,14 @@ func TestCPacePeerElement(t *testing.T) {
 	emptyPeerElement := []byte("")
 
 	_, sid, err := client.Start([]byte(testPassword), nil)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	_, _, err = server.Start([]byte(testPassword), sid)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	want := errPeerElementNil.Error()
 	if _, err = client.Finish(nil); err == nil || err.Error() != want {
@@ -208,7 +221,7 @@ func TestCPacePeerElement(t *testing.T) {
 	}
 
 	want = errPeerElementIdentity.Error()
-	identity := i.Group.Get(nil).Identity().Bytes()
+	identity := i.Group.NewElement().Encode()
 	if _, err = client.Finish(identity); err == nil || err.Error() != want {
 		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
 	}
@@ -217,24 +230,72 @@ func TestCPacePeerElement(t *testing.T) {
 	}
 }
 
+func compareInfo(expected, actual *Info) error {
+	if expected == nil {
+		if actual != nil {
+			return fmt.Errorf("expected nil info, got non-nil")
+		}
+
+		return nil
+	}
+
+	if actual == nil {
+		return fmt.Errorf("expected non-nil info, got nil")
+	}
+
+	if !bytes.Equal(expected.Ida, actual.Ida) {
+		return fmt.Errorf("expected ida=%q, got ida=%q", expected.Ida, actual.Ida)
+	}
+
+	if !bytes.Equal(expected.Idb, actual.Idb) {
+		return fmt.Errorf("expected idb=%q, got idb=%q", expected.Idb, actual.Idb)
+	}
+
+	if bytes.Equal(expected.Ad, actual.Ad) {
+		return fmt.Errorf("expected ad=%q, got ad=%q", expected.Ad, actual.Ad)
+	}
+
+	if !bytes.Equal(expected.Dsi1, actual.Dsi1) {
+		return fmt.Errorf("expected dsi=%q, got dsi=%q", expected.Dsi1, actual.Dsi1)
+	}
+
+	if !bytes.Equal(expected.Dsi2, actual.Dsi2) {
+		return fmt.Errorf("expected dsi=%q, got dsi=%q", expected.Dsi2, actual.Dsi2)
+	}
+
+	return nil
+}
+
 func assertEqualParameters(t *testing.T, expected, actual *Parameters) {
-	assert.Equal(t, expected.Group, actual.Group)
-	assert.Equal(t, expected.Hash, actual.Hash)
-	assert.Equal(t, expected.Info, actual.Info)
+	if expected.Group != actual.Group {
+		t.Fatalf("Group mismatch. Expected %s, got %s", expected.Group, actual.Group)
+	}
+
+	if expected.Hash != actual.Hash {
+		t.Fatalf("Hash mismatch. Expected %s, got %s", expected.Hash, actual.Hash)
+	}
+
+	if err := compareInfo(expected.Info, actual.Info); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestParameterSerialization(t *testing.T) {
 	p := defaultParameters()
 	encodedP := p.Serialize()
 	decodedP, err := DeserializeParameters(encodedP)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	assertEqualParameters(t, p, decodedP)
 
 	p = defaultInitialised()
 	encodedP = p.Serialize()
 	decodedP, err = DeserializeParameters(encodedP)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	assertEqualParameters(t, p, decodedP)
 }
@@ -242,23 +303,27 @@ func TestParameterSerialization(t *testing.T) {
 func TestParameterDeserializationErrors(t *testing.T) {
 	// Nil parameter
 	var input []byte
-	_, err := DeserializeParameters(input)
-	assert.EqualError(t, err, errEncodingShort.Error())
+	if _, err := DeserializeParameters(input); err == nil || !errors.Is(err, errEncodingShort) {
+		t.Fatalf("expected error on short serialization, want %v got %v", errEncodingShort, err)
+	}
 
 	// Short
 	input = []byte{1}
-	_, err = DeserializeParameters(input)
-	assert.EqualError(t, err, errEncodingShort.Error())
+	if _, err := DeserializeParameters(input); err == nil || !errors.Is(err, errEncodingShort) {
+		t.Fatalf("expected error on short serialization, want %v got %v", errEncodingShort, err)
+	}
 
 	// Non-existent group
 	input = []byte{0, 0}
-	_, err = DeserializeParameters(input)
-	assert.EqualError(t, err, errEncodingCiphersuite.Error())
+	if _, err := DeserializeParameters(input); err == nil || !errors.Is(err, errEncodingCiphersuite) {
+		t.Fatalf("expected error on short serialization, want %v got %v", errEncodingCiphersuite, err)
+	}
 
 	// Non-existent hash function
 	input = []byte{1, 0}
-	_, err = DeserializeParameters(input)
-	assert.EqualError(t, err, errEncodingHash.Error())
+	if _, err := DeserializeParameters(input); err == nil || !errors.Is(err, errEncodingHash) {
+		t.Fatalf("expected error on short serialization, want %v got %v", errEncodingHash, err)
+	}
 
 	// Corrupt Info length
 	p := defaultInitialised()
@@ -266,22 +331,32 @@ func TestParameterDeserializationErrors(t *testing.T) {
 	short := make([]byte, 5)
 	copy(short, enc[:5])
 
-	_, err = DeserializeParameters(short)
-	assert.Error(t, err)
+	if _, err := DeserializeParameters(short); err == nil {
+		t.Fatal("expected error on short serialization")
+	}
 }
 
 func TestInfoSerialization(t *testing.T) {
 	i, err := DeserializeInfo(nil)
-	assert.Nil(t, i)
-	assert.NoError(t, err)
+	if i != nil {
+		t.Fatalf("expected nil info, got %#v", i)
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	i = defaultInitialised().Info
 
 	encoded := i.Serialize()
 	decoded, err := DeserializeInfo(encoded)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
-	assert.Equal(t, i, decoded)
+	if err = compareInfo(i, decoded); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestInfoDeserializationErrors(t *testing.T) {
@@ -296,7 +371,9 @@ func TestInfoDeserializationErrors(t *testing.T) {
 	offset = testInfoFieldDeserializationError(t, encoded, offset) // Dsi2
 
 	_, err := DeserializeInfo(encoded)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 }
 
 func testInfoFieldDeserializationError(t *testing.T, fullInfo []byte, fieldOffset int) int {
@@ -305,16 +382,18 @@ func testInfoFieldDeserializationError(t *testing.T, fullInfo []byte, fieldOffse
 	// Missing field (length but no payload)
 	sub := make([]byte, encodingLength)
 	copy(sub, fullInfo[fieldOffset:headerOffset])
-	_, err := DeserializeInfo(sub)
-	assert.Error(t, err)
+	if _, err := DeserializeInfo(sub); err == nil {
+		t.Fatal("expected error on short serialization")
+	}
 
 	// Corrupt field (length but short payload)
-	l := encoding.OS2IP(fullInfo[fieldOffset:headerOffset])
+	l := os2ip(fullInfo[fieldOffset:headerOffset])
 	subLen := headerOffset + l - 1
 	sub = make([]byte, subLen) // shorten
 	copy(sub, fullInfo[0:subLen])
-	_, err = DeserializeInfo(sub)
-	assert.Error(t, err)
+	if _, err := DeserializeInfo(sub); err == nil {
+		t.Fatal("expected error on corrupt field")
+	}
 
 	// Return the offset
 	return fieldOffset + encodingLength + l
@@ -409,8 +488,9 @@ func BenchmarkStart(b *testing.B) {
 	c := defaultInitialised().new(Initiator)
 
 	for i := 0; i < b.N; i++ {
-		_, _, err := c.Start([]byte(testPassword), nil)
-		assert.NoError(b, err)
+		if _, _, err := c.Start([]byte(testPassword), nil); err != nil {
+			b.Fatalf("unexpected error: %s", err)
+		}
 	}
 }
 
@@ -418,14 +498,20 @@ func BenchmarkFinish(b *testing.B) {
 	c := defaultInitialised().new(Initiator)
 	s := defaultInitialised().new(Responder)
 	epkc, sid, err := c.Start([]byte(testPassword), nil)
-	assert.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %s", err)
+	}
 
 	_, _, err = s.Start([]byte(testPassword), sid)
-	assert.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %s", err)
+	}
 
 	for i := 0; i < b.N; i++ {
 		_, err := s.Finish(epkc)
-		assert.NoError(b, err)
+		if err != nil {
+			b.Fatalf("unexpected error: %s", err)
+		}
 	}
 }
 
@@ -434,7 +520,9 @@ func BenchmarkFull(b *testing.B) {
 		c := defaultInitialised().new(Initiator)
 		s := defaultInitialised().new(Responder)
 		_, err := runCPace(c, s, []byte(testPassword), []byte(testPassword), nil, nil)
-		assert.NoError(b, err)
+		if err != nil {
+			b.Fatalf("unexpected error: %s", err)
+		}
 	}
 }
 
@@ -467,9 +555,9 @@ type testVector struct {
 }
 
 type parameters struct {
-	GroupName string                 `json:"HashToGroup"`
-	SuiteID   ciphersuite.Identifier `json:"SuiteID"`
-	Hash      string                 `json:"Hash"`
+	GroupName string    `json:"HashToGroup"`
+	SuiteID   ecc.Group `json:"SuiteID"`
+	Hash      string    `json:"Hash"`
 }
 
 type input struct {
@@ -504,15 +592,18 @@ func generateTestVector(t *testing.T, params *Parameters) testVector {
 	i := info.new(Initiator)
 	r := info.new(Responder)
 	pwd := []byte(testPassword)
-	sid := utils.RandomBytes(minSidLength)
-	sk, err := runCPace(i, r, pwd, pwd, sid, sid)
-	assert.NoError(t, err)
+	var sid [minSidLength]byte
+	_, _ = rand.Read(sid[:])
+	sk, err := runCPace(i, r, pwd, pwd, sid[:], sid[:])
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	in := input{
 		Ida:             ByteToHex(testIDInit),
 		Idb:             ByteToHex(testIDResponder),
 		Ad:              ByteToHex(testAD),
-		Sid:             sid,
+		Sid:             sid[:],
 		Password:        pwd,
 		InitiatorScalar: i.Scalar(),
 		ResponderScalar: r.Scalar(),
@@ -521,7 +612,7 @@ func generateTestVector(t *testing.T, params *Parameters) testVector {
 	out := output{
 		DSI1:       info.Dsi1,
 		DSI2:       info.Dsi2,
-		H2GDst:     ByteToHex(i.group.DST()),
+		H2GDst:     []byte(cpace + i.group.String()),
 		Epku:       i.epk,
 		Epks:       r.epk,
 		SessionKey: sk,
@@ -558,7 +649,7 @@ func TestGenerateVectorFile(t *testing.T) {
 	Test test vectors
 */
 
-func hashToHash(h string) hash.Identifier {
+func hashToHash(h string) hash.Hash {
 	switch h {
 	case "SHA256":
 		return hash.SHA256
@@ -600,13 +691,6 @@ func (v *testVector) test(t *testing.T) {
 	i := info.new(Initiator)
 	r := info.new(Responder)
 
-	if !bytes.Equal(v.H2GDst, []byte(i.group.DST())) {
-		t.Fatalf("invalid HashToGroup DST in initiator. Vector %q, got %q", v.H2GDst, []byte(i.group.DST()))
-	}
-	if !bytes.Equal(v.H2GDst, []byte(r.group.DST())) {
-		t.Fatalf("invalid HashToGroup DST in responder. Vector %q, got %q", v.H2GDst, []byte(r.group.DST()))
-	}
-
 	var err error
 
 	if err := i.SetScalar(v.InitiatorScalar); err != nil {
@@ -618,28 +702,36 @@ func (v *testVector) test(t *testing.T) {
 	}
 
 	epku, _, err := i.Start(v.Password, v.Sid)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	if !bytes.Equal(v.Epku, epku) {
 		t.Fatalf("invalid epku. Vector %q, got %q", v.Epku, epku)
 	}
 
 	epks, _, err := r.Start(v.Password, v.Sid)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	if !bytes.Equal(v.Epks, epks) {
 		t.Fatalf("invalid epks. Vector %q, got %q", v.Epks, epks)
 	}
 
 	iSK, err := i.Finish(epks)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	if !bytes.Equal(v.SessionKey, iSK) {
 		t.Fatalf("invalid initiator session key. Vector %q, got %q", v.SessionKey, iSK)
 	}
 
 	rSK, err := r.Finish(epku)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	if !bytes.Equal(v.SessionKey, rSK) {
 		t.Fatalf("invalid responder session key. Vector %q, got %q", v.SessionKey, rSK)

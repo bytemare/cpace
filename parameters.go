@@ -1,23 +1,23 @@
 package cpace
 
 import (
+	"encoding/binary"
 	"fmt"
+	"slices"
 
-	"github.com/bytemare/cryptotools/encoding"
-	"github.com/bytemare/cryptotools/group/ciphersuite"
-	"github.com/bytemare/cryptotools/hash"
-	"github.com/bytemare/cryptotools/utils"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/hash"
 )
 
 const (
-	dsiFormat = "%s%s-%d" // "CPace[Group]-[i]"
+	dsiFormat      = "%s%s-%d" // "CPace[Group]-[i]"
 	encodingLength = 1
 )
 
 // Parameters identifies the components of a Ciphersuite.
 type Parameters struct {
-	Group ciphersuite.Identifier `json:"group"`
-	Hash  hash.Identifier        `json:"hash"`
+	Group ecc.Group `json:"group"`
+	Hash  hash.Hash `json:"hash"`
 	*Info `json:"info"`
 }
 
@@ -36,11 +36,9 @@ func (p *Parameters) Init(ida, idb, ad []byte) *Parameters {
 }
 
 func (p *Parameters) new(role Role) *CPace {
-	h2gDST := []byte(cpace + p.Group.String())
-
 	return &CPace{
 		role:       role,
-		group:      p.Group.Get(h2gDST),
+		group:      p.Group,
 		parameters: p,
 	}
 }
@@ -64,7 +62,7 @@ func (p *Parameters) Serialize() []byte {
 		i = p.Info.Serialize()
 	}
 
-	return utils.Concatenate(0, []byte{byte(p.Group), byte(p.Hash)}, i)
+	return slices.Concat([]byte{byte(p.Group), byte(p.Hash)}, i)
 }
 
 // DeserializeParameters attempts to decode input into a Parameter structure.
@@ -75,12 +73,12 @@ func DeserializeParameters(input []byte) (*Parameters, error) {
 	}
 
 	g := input[0]
-	if !ciphersuite.Identifier(g).Available() {
+	if !ecc.Group(g).Available() {
 		return nil, errEncodingCiphersuite
 	}
 
 	h := input[1]
-	if !hash.Identifier(h).Available() {
+	if !hash.Hash(h).Available() {
 		return nil, errEncodingHash
 	}
 
@@ -90,8 +88,8 @@ func DeserializeParameters(input []byte) (*Parameters, error) {
 	}
 
 	return &Parameters{
-		Group: ciphersuite.Identifier(g),
-		Hash:  hash.Identifier(h),
+		Group: ecc.Group(g),
+		Hash:  hash.Hash(h),
 		Info:  i,
 	}, nil
 }
@@ -115,17 +113,43 @@ type Info struct {
 // Serialize returns a byte string serialization of i.
 func (i *Info) Serialize() []byte {
 	// todo: bounds check on length of these arrays. Wait for definition.
-	return utils.Concatenate(0,
-		serialize(i.Ida, encodingLength),
-		serialize(i.Idb, encodingLength),
-		serialize(i.Ad, encodingLength),
-		serialize(i.Dsi1, encodingLength),
-		serialize(i.Dsi2, encodingLength),
+	return slices.Concat(
+		serialize(i.Ida),
+		serialize(i.Idb),
+		serialize(i.Ad),
+		serialize(i.Dsi1),
+		serialize(i.Dsi2),
 	)
 }
 
-func serialize(input []byte, length int) []byte {
-	return append(encoding.I2OSP(len(input), length), input...)
+func serialize(input []byte) []byte {
+	var prefix [2]byte
+	out := make([]byte, len(input)+1)
+	binary.BigEndian.PutUint16(prefix[:], uint16(len(input)))
+	out[0] = prefix[1:2][0]
+	copy(out[1:], input)
+
+	return out
+}
+
+// os2ip Octet Stream to Integer Primitive on maximum 4 bytes / 32 bits.
+func os2ip(input []byte) int {
+	switch len(input) {
+	case 0:
+		panic(ErrInputEmpty)
+	case 1:
+		b := []byte{0, input[0]}
+		return int(binary.BigEndian.Uint16(b))
+	case 2:
+		return int(binary.BigEndian.Uint16(input))
+	case 3:
+		b := append([]byte{0}, input...)
+		return int(binary.BigEndian.Uint32(b))
+	case 4:
+		return int(binary.BigEndian.Uint32(input))
+	default:
+		panic(ErrInputTooLarge)
+	}
 }
 
 func deserialize(in []byte, start, length int) (b []byte, offset int, err error) {
@@ -136,7 +160,7 @@ func deserialize(in []byte, start, length int) (b []byte, offset int, err error)
 	}()
 
 	step := start + length
-	l := encoding.OS2IP(in[start:step])
+	l := os2ip(in[start:step])
 	b = in[step : step+l]
 
 	return b, step + l, nil
