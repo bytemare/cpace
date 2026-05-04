@@ -123,8 +123,6 @@ jobs:
       # Govulncheck
       govulncheck: true
       govulncheck-go-check-latest: true
-      # Gitleaks
-      gitleaks: true
       # Codecov upload
       codecov: true
       codecov-disable-search: true
