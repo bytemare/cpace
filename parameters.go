@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2026 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package cpace
 
 import (
@@ -35,14 +43,6 @@ func (p *Parameters) Init(ida, idb, ad []byte) *Parameters {
 	return p
 }
 
-func (p *Parameters) new(role Role) *CPace {
-	return &CPace{
-		role:       role,
-		group:      p.Group,
-		parameters: p,
-	}
-}
-
 // Initiator returns a pointer to a CPace structure for the protocol's initiator role.
 func (p *Parameters) Initiator() *CPace {
 	return p.new(Initiator)
@@ -63,6 +63,16 @@ func (p *Parameters) Serialize() []byte {
 	}
 
 	return slices.Concat([]byte{byte(p.Group), byte(p.Hash)}, i)
+}
+
+func (p *Parameters) new(role Role) *CPace {
+	return &CPace{
+		role:       role,
+		group:      p.Group,
+		parameters: p,
+		scalar:     nil,
+		epk:        nil,
+	}
 }
 
 // DeserializeParameters attempts to decode input into a Parameter structure.
@@ -112,7 +122,7 @@ type Info struct {
 
 // Serialize returns a byte string serialization of i.
 func (i *Info) Serialize() []byte {
-	// todo: bounds check on length of these arrays. Wait for definition.
+	// need bounds check on length of these arrays. Wait for definition.
 	return slices.Concat(
 		serialize(i.Ida),
 		serialize(i.Idb),
@@ -124,6 +134,7 @@ func (i *Info) Serialize() []byte {
 
 func serialize(input []byte) []byte {
 	var prefix [2]byte
+
 	out := make([]byte, len(input)+1)
 	binary.BigEndian.PutUint16(prefix[:], uint16(len(input)))
 	out[0] = prefix[1:2][0]
@@ -152,18 +163,18 @@ func os2ip(input []byte) int {
 	}
 }
 
-func deserialize(in []byte, start, length int) (b []byte, offset int, err error) {
+func deserialize(in []byte, start int) (b []byte, offset int, err error) {
 	defer func() {
 		if recover() != nil {
 			err = errDecodingBounds
 		}
 	}()
 
-	step := start + length
+	step := start + encodingLength
 	l := os2ip(in[start:step])
 	b = in[step : step+l]
 
-	return b, step + l, nil
+	return b, step + l, err
 }
 
 // DeserializeInfo attempts to decode input into an Info structure.
@@ -171,32 +182,32 @@ func deserialize(in []byte, start, length int) (b []byte, offset int, err error)
 // Nil input returns nil Info pointer without error.
 func DeserializeInfo(input []byte) (*Info, error) {
 	if len(input) == 0 {
-		return nil, nil
+		return nil, ErrInputEmpty
 	}
 
 	offset := 0
 
-	ida, offset, err := deserialize(input, offset, encodingLength)
+	ida, offset, err := deserialize(input, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding info - failed at offset %d (%s): %w", offset, "ida", err)
 	}
 
-	idb, offset, err := deserialize(input, offset, encodingLength)
+	idb, offset, err := deserialize(input, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding info - failed at offset %d (%s): %w", offset, "idb", err)
 	}
 
-	ad, offset, err := deserialize(input, offset, encodingLength)
+	ad, offset, err := deserialize(input, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding info - failed at offset %d (%s): %w", offset, "ad", err)
 	}
 
-	dsi1, offset, err := deserialize(input, offset, encodingLength)
+	dsi1, offset, err := deserialize(input, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding info - failed at offset %d (%s): %w", offset, "dsi1", err)
 	}
 
-	dsi2, offset, err := deserialize(input, offset, encodingLength)
+	dsi2, offset, err := deserialize(input, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding info - failed at offset %d (%s): %w", offset, "dsi2", err)
 	}

@@ -4,6 +4,8 @@ linters:
   disable:
     - embeddedstructfieldcheck
     - noinlineerr
+    - nonamedreturns
+    - varnamelen
   enable:
     - arangolint
     - asasalint
@@ -144,9 +146,9 @@ linters:
         - return
         - assign
       ignored-numbers:
-        - '256'
-        - '512'
-        - '1600'
+        - '2'
+        - '3'
+        - '4'
     nlreturn:
       block-size: 2
     prealloc:

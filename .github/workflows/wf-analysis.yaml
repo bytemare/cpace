@@ -111,25 +111,9 @@ jobs:
       codeql: true
       codeql-language: go # comma-separated list supported
       codeql-go-check-latest: true
-      # SonarQube
-      sonarqube: true
-      sonarqube-configuration: .github/sonar-project.properties
-      # Shared coverage generation (one-time, consumed by SonarQube and Codecov)
-      coverage-enabled: true
-      coverage-go-enabled: true
-      coverage-go-check-latest: true
-      coverage-go-command: "make -C .github cover"
-      coverage-go-report-path: ".github/coverage.out"
       # Govulncheck
       govulncheck: true
       govulncheck-go-check-latest: true
-      # Codecov upload
-      codecov: true
-      codecov-disable-search: true
     secrets:
       # Semgrep token
       semgrep: ${{ secrets.SEMGREP_APP_TOKEN }}
-      # SonarQube token
-      sonarqube: ${{ secrets.SONAR_TOKEN }}
-      # Codecov token
-      codecov: ${{ secrets.CODECOV_TOKEN }}
