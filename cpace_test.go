@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"os"
 	"path"
 	"path/filepath"
@@ -554,8 +553,8 @@ type testVector struct {
 
 type parameters struct {
 	GroupName string    `json:"HashToGroup"`
-	SuiteID   ecc.Group `json:"SuiteID"`
 	Hash      string    `json:"Hash"`
+	SuiteID   ecc.Group `json:"SuiteID"`
 }
 
 type input struct {
@@ -637,7 +636,7 @@ func generateAllVectors(t *testing.T) []testVector {
 func TestGenerateVectorFile(t *testing.T) {
 	dir := "./tests"
 	file := "allVectors.json"
-	write := true
+	write := false
 
 	vectors := generateAllVectors(t)
 	content, _ := json.MarshalIndent(vectors, "", "  ")

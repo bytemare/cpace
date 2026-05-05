@@ -2,97 +2,97 @@
   {
     "Parameters": {
       "HashToGroup": "ristretto255_XMD:SHA-512_R255MAP_RO_",
-      "SuiteID": 1,
-      "Hash": "SHA-256"
+      "Hash": "SHA-256",
+      "SuiteID": 1
     },
     "Input": {
       "Ida": "696e69746961746f72",
       "Idb": "726573706f6e646572",
       "AD": "6164",
-      "SID": "7d097ff6cd4cf5675318416b66afd5e4",
+      "SID": "1bed0c0024c8d6bf44dfb664ba9301a8",
       "Password": "70617373776f7264",
-      "scalarA": "787396250ec6d04e98175c511360d47d1880a7d4614330204b2247fc1799d20f",
-      "scalarB": "3094d78e9ca3f335c2c81ff474e7650a5ed0258c648a8b7342f22af1a6fa2f01"
+      "scalarA": "67fa4a53e72868e699da722f638049f81c588e4ac3a34a9e241f0536688a0e0e",
+      "scalarB": "9835e887f61d2bdb87191e73825c3f8558ee0019b1682173f1cf3372172e4b0c"
     },
     "Output": {
       "DSI1": "435061636572697374726574746f3235355f584d443a5348412d3531325f523235354d41505f524f5f2d31",
       "DSI2": "435061636572697374726574746f3235355f584d443a5348412d3531325f523235354d41505f524f5f2d32",
       "HashToGroupDST": "435061636572697374726574746f3235355f584d443a5348412d3531325f523235354d41505f524f5f",
-      "Epku": "aaac91d72f6322db5e23dbbe5cc27b3b906745b2e9d016a60cf1d4c917de5b77",
-      "Epks": "d637332538ed140f0f51e8e9f418c834755e0471faed7f589806db65fdd93b2f",
-      "SessionKey": "60e31ef9c3a673f31cd22154150c87843f8baa90dbc5d2c4a0d4bda3b84ae992"
+      "Epku": "18dae03addf89d22b210324c88479559367c2a58bf3ec66830bf7f1504bc1b5f",
+      "Epks": "8c6f0e04dcdb82f7441638938e2125e7975ae18c89acdf9fc2cb7739180eca74",
+      "SessionKey": "7d85ec00a6e80ae8556c6f421ccb3852454b6bfbcad359061e60538f59946309"
     }
   },
   {
     "Parameters": {
       "HashToGroup": "ristretto255_XMD:SHA-512_R255MAP_RO_",
-      "SuiteID": 1,
-      "Hash": "SHAKE128"
+      "Hash": "SHAKE128",
+      "SuiteID": 1
     },
     "Input": {
       "Ida": "696e69746961746f72",
       "Idb": "726573706f6e646572",
       "AD": "6164",
-      "SID": "ee09d14522fa9c9d47a9d62c28808089",
+      "SID": "534de21fa6831a99b5441ec4f06b8031",
       "Password": "70617373776f7264",
-      "scalarA": "9c5bf1d87c9468b747aa58b4bfbc90a6b32183384e3f2334ab2f36b262e7680a",
-      "scalarB": "c5a1ae14f9b9d8ac54f8ae094d05471e75987a9559ccbb9638ce46b7f1ee4f08"
+      "scalarA": "4f2a9e1d048137cf129e7c0c4f5c2274f44a390fbf6f2a4308fc9c91a4cdd508",
+      "scalarB": "367bbaaa8cbbe49647238ad870840f49f9cf4b88c8fc24bae4b6f53393eb720f"
     },
     "Output": {
       "DSI1": "435061636572697374726574746f3235355f584d443a5348412d3531325f523235354d41505f524f5f2d31",
       "DSI2": "435061636572697374726574746f3235355f584d443a5348412d3531325f523235354d41505f524f5f2d32",
       "HashToGroupDST": "435061636572697374726574746f3235355f584d443a5348412d3531325f523235354d41505f524f5f",
-      "Epku": "024ed98f68c36070dc7fda6e6659eb075cc51bd81a8435e2d4f409aacb44d362",
-      "Epks": "864cb75f640ae6188ba61ed09106ab9869f6383c44ec04866717c8b23f64d402",
-      "SessionKey": "80f965e5900e436c9e4f583b78f5b7bb0f865fd4d67e1fdc3520e6a355d470b7"
+      "Epku": "d03e114f43fc41b2227a88a51ac36917aae046e547c0abc5d4bfa674fb61b617",
+      "Epks": "06c505487d0bb27ff4c439d6d4021d6ab3e56cb70fafcc1098c2f2b18de2ed2a",
+      "SessionKey": "81fd6441a124b9f27d3f939b12b2e22d1c1fd46cfb6e9c116bf6a16e3fd0eac9"
     }
   },
   {
     "Parameters": {
       "HashToGroup": "P256_XMD:SHA-256_SSWU_RO_",
-      "SuiteID": 3,
-      "Hash": "SHA-256"
+      "Hash": "SHA-256",
+      "SuiteID": 3
     },
     "Input": {
       "Ida": "696e69746961746f72",
       "Idb": "726573706f6e646572",
       "AD": "6164",
-      "SID": "560e2b707e126380858da8a16800419a",
+      "SID": "ef044ad6ec4030aa16554a615e13fcc6",
       "Password": "70617373776f7264",
-      "scalarA": "c04812dd9dcd82193aaf4625f3cfb9b6154c3c5e443cc3c9ffcb12a1aa12a90d",
-      "scalarB": "94eb76cd8b1a29b42930c736e01e0019c8fd066858965f840a0459aac965e88c"
+      "scalarA": "9814682c855b0c377148d4b7d48e94b6a0e0062553a9928a58582430f3e2b4d3",
+      "scalarB": "ac43a64f93f1c495079e1b0dbb1da62f24553d859c797960a202f1639bee2187"
     },
     "Output": {
       "DSI1": "4350616365503235365f584d443a5348412d3235365f535357555f524f5f2d31",
       "DSI2": "4350616365503235365f584d443a5348412d3235365f535357555f524f5f2d32",
       "HashToGroupDST": "4350616365503235365f584d443a5348412d3235365f535357555f524f5f",
-      "Epku": "03b1061b5d451dd275da91f00f44c97172084d641149f334148d824cc4aa678796",
-      "Epks": "0261a84770379b22be1bc0867235a29f460531e3ef2f96eaa77189b98d444c4af4",
-      "SessionKey": "f686eca7fe12e07aba0650a1a5ea82fb9087a63414bb7cf7e85a339f9b130b3e"
+      "Epku": "02afe266a011debe774e3e922e723b417eea912481c50621d70a0c5a97230e1efc",
+      "Epks": "020e578ea6c594029c82ee5e056f1e0bec0729fc3a7339be6e3b6172dcdb6e46d4",
+      "SessionKey": "c6a2214f696762a9b7c26fd2636a6e44e9f348a0a3a94a80bfbc88c03cc35d7c"
     }
   },
   {
     "Parameters": {
       "HashToGroup": "P256_XMD:SHA-256_SSWU_RO_",
-      "SuiteID": 3,
-      "Hash": "SHAKE128"
+      "Hash": "SHAKE128",
+      "SuiteID": 3
     },
     "Input": {
       "Ida": "696e69746961746f72",
       "Idb": "726573706f6e646572",
       "AD": "6164",
-      "SID": "d5c636461ca587e976f06fa684186e95",
+      "SID": "6735dacbd1a93524e473456d494ef15c",
       "Password": "70617373776f7264",
-      "scalarA": "e5fd6d12ac8a36dfee9c4fc031b81457f5b2244feacc6b166f7878d1f674f100",
-      "scalarB": "a9a89e95ec9fb165609df2486092003958dc3b75396b98bcd6e3fb1c6cd2c730"
+      "scalarA": "195092bfa5a91001eccab7b6a91fa97b850cc2079719b315d4538eda26da629a",
+      "scalarB": "722c067f06b178bebd2aa41ec8cc728b8092ba54275ba760edcdd0091619f1c8"
     },
     "Output": {
       "DSI1": "4350616365503235365f584d443a5348412d3235365f535357555f524f5f2d31",
       "DSI2": "4350616365503235365f584d443a5348412d3235365f535357555f524f5f2d32",
       "HashToGroupDST": "4350616365503235365f584d443a5348412d3235365f535357555f524f5f",
-      "Epku": "020e885d1f2056aa14be277d97202da3b0e9cea0a369280e287b2931b9655fbfa2",
-      "Epks": "03829c16230cf133ae65cd50ecc35607689842444981db567f2bce1245b736a5f3",
-      "SessionKey": "b1651eaa64e03ce5c688a1ab4647fdc94fb2355fa343bb721c47bd27ce0b95f6"
+      "Epku": "029688bfd73d63c3e5cbd49361fdc07cdbff2680d77ade771cab20d5416519e765",
+      "Epks": "034328dd35d8060016db6d8d3e6e895d9571593919acdc75549143ff4d61f0d039",
+      "SessionKey": "5684a9cba6d7d805c2f73f39414fe625ff1fb0cf04aa6b10cc7b23f73e5f9216"
     }
   }
 ]

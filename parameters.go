@@ -16,9 +16,9 @@ const (
 
 // Parameters identifies the components of a Ciphersuite.
 type Parameters struct {
+	*Info `json:"info"`
 	Group ecc.Group `json:"group"`
 	Hash  hash.Hash `json:"hash"`
-	*Info `json:"info"`
 }
 
 // Init initialises the parameters with information relative to the communication peers, and returns p.
@@ -28,8 +28,8 @@ func (p *Parameters) Init(ida, idb, ad []byte) *Parameters {
 		Ida:  ida,
 		Idb:  idb,
 		Ad:   ad,
-		Dsi1: []byte(fmt.Sprintf(dsiFormat, cpace, p.Group, 1)),
-		Dsi2: []byte(fmt.Sprintf(dsiFormat, cpace, p.Group, 2)),
+		Dsi1: fmt.Appendf(nil, dsiFormat, cpace, p.Group, 1),
+		Dsi2: fmt.Appendf(nil, dsiFormat, cpace, p.Group, 2),
 	}
 
 	return p

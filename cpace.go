@@ -23,11 +23,11 @@ const (
 
 // CPace holds information about the party's state, and offers the protocol functions.
 type CPace struct {
+	parameters *Parameters
+	scalar     *ecc.Scalar
+	epk        []byte
 	role       Role
 	group      ecc.Group
-	parameters *Parameters
-	epk        []byte
-	scalar     *ecc.Scalar
 }
 
 func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
