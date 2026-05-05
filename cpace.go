@@ -51,7 +51,12 @@ func (c *CPace) Start(password, sid []byte) (epk *ecc.Element, ssid []byte, err 
 	}
 
 	h := slices.Concat(c.parameters.Dsi1, password, ssid, c.parameters.Ida, c.parameters.Idb, c.parameters.Ad)
-	m := c.parameters.Group.HashToGroup([]byte(Cpace+c.parameters.Group.String()), h)
+
+	m, err := c.parameters.Group.EncodeToGroup([]byte(Cpace+c.parameters.Group.String()), h)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode to group : %w", err)
+	}
+
 	c.EphemeralPublicKeyShare = m.Multiply(c.SecretScalar)
 
 	return c.EphemeralPublicKeyShare.Copy(), ssid, nil

@@ -646,9 +646,9 @@ func generateAllVectors(t *testing.T) []testVector {
 }
 
 func TestGenerateVectorFile(t *testing.T) {
-	dir := "./tests"
+	dir := "./vectors"
 	file := "allVectors.json"
-	write := false
+	write := true
 
 	vectors := generateAllVectors(t)
 	content, _ := json.MarshalIndent(vectors, "", "  ")
@@ -758,7 +758,7 @@ func (v *testVector) test(t *testing.T) {
 }
 
 func TestCPaceVectors(t *testing.T) {
-	if err := filepath.Walk("./vectors/",
+	if err := filepath.Walk("./vectors",
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
