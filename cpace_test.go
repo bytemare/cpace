@@ -153,6 +153,7 @@ func TestCPaceWrongSid(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
+	t.Log(hex.EncodeToString(epku))
 	serverSK, err := responder.Finish(epku)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -220,13 +221,12 @@ func TestCPacePeerElement(t *testing.T) {
 		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
 	}
 
-	want = errPeerElementIdentity.Error()
 	identity := i.Group.NewElement().Encode()
-	if _, err = client.Finish(identity); err == nil || err.Error() != want {
-		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
+	if _, err = client.Finish(identity); err == nil || !errors.Is(err, errPeerElementInvalid) {
+		t.Fatalf(testErrInvalidPeerElementFmt, err, errPeerElementInvalid)
 	}
-	if _, err = server.Finish(identity); err == nil || err.Error() != want {
-		t.Fatalf(testErrInvalidPeerElementFmt, err, want)
+	if _, err = server.Finish(identity); err == nil || !errors.Is(err, errPeerElementInvalid) {
+		t.Fatalf(testErrInvalidPeerElementFmt, err, errPeerElementInvalid)
 	}
 }
 
@@ -251,7 +251,7 @@ func compareInfo(expected, actual *Info) error {
 		return fmt.Errorf("expected idb=%q, got idb=%q", expected.Idb, actual.Idb)
 	}
 
-	if bytes.Equal(expected.Ad, actual.Ad) {
+	if !bytes.Equal(expected.Ad, actual.Ad) {
 		return fmt.Errorf("expected ad=%q, got ad=%q", expected.Ad, actual.Ad)
 	}
 
@@ -649,9 +649,13 @@ func TestGenerateVectorFile(t *testing.T) {
 	Test test vectors
 */
 
-func hashToHash(h string) hash.Hash {
+func hashToHash(t *testing.T, h string) hash.Hash {
+	t.Helper()
+
 	switch h {
 	case "SHA256":
+		return hash.SHA256
+	case "SHA-256":
 		return hash.SHA256
 	case "SHA512":
 		return hash.SHA512
@@ -668,8 +672,10 @@ func hashToHash(h string) hash.Hash {
 	case "BLAKE2XS":
 		return hash.BLAKE2XS
 	default:
-		return 0
+		t.Fatalf("unknown hash type: %s", h)
 	}
+
+	return 0
 }
 
 type testVectors []*testVector
@@ -677,7 +683,7 @@ type testVectors []*testVector
 func (v *testVector) test(t *testing.T) {
 	p := &Parameters{
 		Group: v.SuiteID,
-		Hash:  hashToHash(v.Hash),
+		Hash:  hashToHash(t, v.Hash),
 	}
 
 	info := p.Init(v.Ida, v.Idb, v.Ad)
@@ -719,6 +725,7 @@ func (v *testVector) test(t *testing.T) {
 		t.Fatalf("invalid epks. Vector %q, got %q", v.Epks, epks)
 	}
 
+	t.Log(i.parameters.Hash)
 	iSK, err := i.Finish(epks)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)

@@ -32,7 +32,7 @@ type CPace struct {
 
 func (c *CPace) sessionKey(peerElement []byte) ([]byte, error) {
 	peer := c.group.NewElement()
-	if err := c.group.NewElement().Decode(peerElement); err != nil {
+	if err := peer.Decode(peerElement); err != nil {
 		return nil, errPeerElementInvalid
 	}
 
@@ -96,7 +96,7 @@ func (c *CPace) Start(password, sid []byte) (epk, ssid []byte, err error) {
 		return nil, nil, err
 	}
 
-	if c.scalar == nil {
+	if c.scalar == nil || c.scalar.IsZero() {
 		c.scalar = c.group.NewScalar().Random()
 	}
 
