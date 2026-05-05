@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2026 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package cpace
 
 import (
@@ -7,21 +15,20 @@ import (
 
 // Setup errors.
 var (
-	errSetupSIDNil      = errors.New("setup - session id is nil")
-	errSetupSIDTooShort = fmt.Errorf("setup - session id is too short (< %d)", minSidLength)
+	ErrSetupSIDNil      = errors.New("setup - session id is nil")
+	ErrSetupSIDTooShort = fmt.Errorf("setup - session id is too short (< %d)", MinSidLength)
 
-	errEncodingShort       = errors.New("parameter encoding is too short")
-	errEncodingCiphersuite = errors.New("ciphersuite identifier not recognised or unavailable")
-	errEncodingHash        = errors.New("hash identifier not recognised or unavailable")
+	ErrEncodingShort       = errors.New("parameter encoding is too short")
+	ErrEncodingCiphersuite = errors.New("ciphersuite identifier not recognised or unavailable")
+	ErrEncodingHash        = errors.New("hash identifier not recognised or unavailable")
 	errDecodingBounds      = errors.New("array index out of bounds")
 )
 
 // Errors resulting from invalid peer data.
 var (
-	errPeerElementNil      = errors.New("peer data - peer element is either nil or of size 0")
-	errPeerElementInvalid  = errors.New("peer data - peer element decoding error")
-	errPeerElementIdentity = errors.New("peer data - invalid peer message : identity element")
+	ErrPeerElementNil      = errors.New("peer data - peer element is either nil or of size 0")
+	ErrPeerElementInvalid  = errors.New("peer data - peer element decoding error")
+	ErrPeerElementIdentity = errors.New("peer data - invalid peer message : identity element")
 )
 
-// Other errors.
-var errNoEphemeralPubKey = errors.New("public point not set - not initiated? ")
+var ErrNoEphemeralPubKey = errors.New("public point not set - not initiated? ")

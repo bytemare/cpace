@@ -1,9 +1,17 @@
 # CPace
+
+[![CI](https://github.com/bytemare/cpace/actions/workflows/wf-analysis.yaml/badge.svg)](https://github.com/bytemare/cpace/actions/workflows/wf-analysis.yaml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/bytemare/cpace.svg)](https://pkg.go.dev/github.com/bytemare/cpace)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/bytemare/cpace/badge)](https://scorecard.dev/viewer/?uri=github.com/bytemare/cpace)
+
+```go
+  import "github.com/bytemare/cpace"
+```
 
 CPace provides secure mutual authentication based on a pre-shared secret or password.
 
-This package implements https://datatracker.ietf.org/doc/draft-irtf-cfrg-cpace.
+This package implements the [CPACE](https://datatracker.ietf.org/doc/draft-irtf-cfrg-cpace) draft.
 
 **!!! WARNING: THIS IMPLEMENTATION IS PROOF OF CONCEPT AND BASED ON THE LATEST INTERNET-DRAFT.
 THERE ARE ABSOLUTELY NO WARRANTIES. !!!**
@@ -12,10 +20,6 @@ CPace allows two parties sharing a common secret or password to securely agree o
 It's a dead-simple protocol with only two messages, yet a state of the art key exchange based on a shared secret.
 
 Note: The registration of the secret password is not in the scope of the protocol or this implementation.
-
-## Get it
-
-    go get github.com/bytemare/cpace
 
 ## Use it
 
@@ -30,12 +34,12 @@ package cpace
 
 import (
     "github.com/bytemare/cpace"
-    "github.com/bytemare/crypto/group"
-    "github.com/bytemare/crypto/hash"
+    "github.com/bytemare/ecc"
+    "github.com/bytemare/hash"
 )
 
 params := &cpace.Parameters{
-        Group: ciphersuite.Ristretto255Sha512,
+        Group: ecc.Ristretto255Sha512,
         Hash:  hash.SHA512,
     }
 ```
@@ -75,8 +79,8 @@ package cpace
 
 import (
     "github.com/bytemare/cpace"
-    "github.com/bytemare/crypto/group"
-    "github.com/bytemare/crypto/hash"
+    "github.com/bytemare/ecc"
+    "github.com/bytemare/hash"
 )
 
 clientID := []byte("client")
@@ -86,8 +90,8 @@ var ad []byte = nil // this can securely be nil
 
 // Set cryptographic parameters
 params := &cpace.Parameters{
-   Group: ciphersuite.Ristretto255Sha512,
-   Hash:  hash.SHA512,
+    Group: ciphersuite.Ristretto255Sha512,
+    Hash:  hash.SHA512,
 }
 
 // Prepare common communication info
@@ -100,36 +104,37 @@ server := info.Responder()
 // Client starts. If no sid is given for the client, the function returns a new sid.
 epku, sid, err := client.Start(password, nil)
 if err != nil {
-   panic(err)
+    panic(err)
 }
 
 // The server receives sends back its own epks.
 // The sid should be the same as from the client, and can even be the one the client sent.
 epks, _, err := server.Start(password, sid)
 if err != nil {
-   panic(err)
+    panic(err)
 }
 
 // The session key can already be derived by the server using the client's epku.
 // If they differ, one of the peers used the wrong password.
 serverSK, err := server.Finish(epku)
 if err != nil {
-   panic(err)
+    panic(err)
 }
 
 // The client receives the server epks, and can derive the session key.
 clientSK, err := client.Finish(epks)
 if err != nil {
-   panic(err)
+    panic(err)
 }
 
 // The protocol is finished, and both parties now share the same secret session key
 ```
+
 </details>
 
 ## Under the hood
 
-All cryptographic operations can be found in the [crypto package](https://github.com/bytemare/crypto), which itself uses either the standard library or tested and proved external libraries.
+All cryptographic operations can be found in the [ecc package](https://github.com/bytemare/ecc), which itself uses either the standard library or tested and proved external libraries.
 
 ## Deploy it
 

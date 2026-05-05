@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: github.com/bytemare/cpace
+message: If you use this software, please cite it using the metadata from this file.
+type: software
+abstract: >-
+  Go implementation of the CPace protocol.
+repository-code: https://github.com/bytemare/hash
+license: MIT
+keywords:
+  - go
+  - cpace
+  - cryptography
+  - pake
+authors:
+  - family-names: Bourdrez
+    given-names: Daniel
+url: https://github.com/bytemare/cpace

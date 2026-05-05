@@ -1,24 +1,34 @@
-package cpace
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2026 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
+package cpace_test
 
 import (
 	"bytes"
 	"fmt"
 
-	"github.com/bytemare/cryptotools/group/ciphersuite"
-	"github.com/bytemare/cryptotools/hash"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/hash"
+
+	"github.com/bytemare/cpace"
 )
 
 var (
-	testResponder, testInitiator *CPace
+	testResponder, testInitiator *cpace.CPace
 	testResponderSK              []byte
 )
 
-func receiveFromResponder(epkc, sid []byte) []byte {
+func receiveFromResponder(epkc *ecc.Element, sid []byte) *ecc.Element {
 	clientID := []byte("client")
 	serverID := []byte("server")
 	password := []byte("password")
-	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+	params := &cpace.Parameters{
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 	testResponder = params.Init(clientID, serverID, nil).Responder()
@@ -35,12 +45,12 @@ func receiveFromResponder(epkc, sid []byte) []byte {
 	return epks
 }
 
-func receiveFromClient() (epku, sid []byte) {
+func receiveFromClient() (epku *ecc.Element, sid []byte) {
 	clientID := []byte("client")
 	serverID := []byte("server")
 	password := []byte("password")
-	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+	params := &cpace.Parameters{
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 	testInitiator = params.Init(clientID, serverID, nil).Initiator()
@@ -52,7 +62,7 @@ func receiveFromClient() (epku, sid []byte) {
 	return epku, sid
 }
 
-func clientSecretKey(epks []byte) []byte {
+func clientSecretKey(epks *ecc.Element) []byte {
 	sk, err := testInitiator.Finish(epks)
 	if err != nil {
 		panic(err)
@@ -69,8 +79,8 @@ func ExampleInitiator() {
 	var ad []byte = nil
 
 	// Set cryptographic parameters
-	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+	params := &cpace.Parameters{
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 
@@ -107,8 +117,8 @@ func ExampleResponder() {
 	var ad []byte = nil
 
 	// Set cryptographic parameters
-	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+	params := &cpace.Parameters{
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 
@@ -146,8 +156,8 @@ func ExampleCPace() {
 	var ad []byte = nil // this can securely be nil
 
 	// Set cryptographic parameters
-	params := &Parameters{
-		Group: ciphersuite.Ristretto255Sha512,
+	params := &cpace.Parameters{
+		Group: ecc.Ristretto255Sha512,
 		Hash:  hash.SHA512,
 	}
 
