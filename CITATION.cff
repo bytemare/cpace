@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: github.com/bytemare/hash
+message: If you use this software, please cite it using the metadata from this file.
+type: software
+abstract: >-
+  High-level Go wrappers that unify hashing functions with consistent metadata,
+  HMAC, and HKDF helpers on top of the Go standard library.
+repository-code: https://github.com/bytemare/hash
+license: MIT
+keywords:
+  - go
+  - hashing
+  - cryptography
+  - hkdf
+  - hmac
+authors:
+  - family-names: Bourdrez
+    given-names: Daniel
+url: https://github.com/bytemare/hash

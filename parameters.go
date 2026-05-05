@@ -15,11 +15,13 @@ import (
 
 	"github.com/bytemare/ecc"
 	"github.com/bytemare/hash"
+
+	"github.com/bytemare/cpace/internal"
 )
 
 const (
 	dsiFormat      = "%s%s-%d" // "CPace[Group]-[i]"
-	encodingLength = 1
+	EncodingLength = 1
 )
 
 // Parameters identifies the components of a Ciphersuite.
@@ -36,8 +38,8 @@ func (p *Parameters) Init(ida, idb, ad []byte) *Parameters {
 		Ida:  ida,
 		Idb:  idb,
 		Ad:   ad,
-		Dsi1: fmt.Appendf(nil, dsiFormat, cpace, p.Group, 1),
-		Dsi2: fmt.Appendf(nil, dsiFormat, cpace, p.Group, 2),
+		Dsi1: fmt.Appendf(nil, dsiFormat, Cpace, p.Group, 1),
+		Dsi2: fmt.Appendf(nil, dsiFormat, Cpace, p.Group, 2),
 	}
 
 	return p
@@ -67,11 +69,10 @@ func (p *Parameters) Serialize() []byte {
 
 func (p *Parameters) new(role Role) *CPace {
 	return &CPace{
-		role:       role,
-		group:      p.Group,
-		parameters: p,
-		scalar:     nil,
-		epk:        nil,
+		role:                    role,
+		parameters:              p,
+		SecretScalar:            nil,
+		EphemeralPublicKeyShare: nil,
 	}
 }
 
@@ -79,17 +80,17 @@ func (p *Parameters) new(role Role) *CPace {
 // Out-of-bounds panics are recovered from and returned as errors with field specification.
 func DeserializeParameters(input []byte) (*Parameters, error) {
 	if len(input) < 2 {
-		return nil, errEncodingShort
+		return nil, ErrEncodingShort
 	}
 
 	g := input[0]
 	if !ecc.Group(g).Available() {
-		return nil, errEncodingCiphersuite
+		return nil, ErrEncodingCiphersuite
 	}
 
 	h := input[1]
 	if !hash.Hash(h).Available() {
-		return nil, errEncodingHash
+		return nil, ErrEncodingHash
 	}
 
 	i, err := DeserializeInfo(input[2:])
@@ -143,26 +144,6 @@ func serialize(input []byte) []byte {
 	return out
 }
 
-// os2ip Octet Stream to Integer Primitive on maximum 4 bytes / 32 bits.
-func os2ip(input []byte) int {
-	switch len(input) {
-	case 0:
-		panic(ErrInputEmpty)
-	case 1:
-		b := []byte{0, input[0]}
-		return int(binary.BigEndian.Uint16(b))
-	case 2:
-		return int(binary.BigEndian.Uint16(input))
-	case 3:
-		b := append([]byte{0}, input...)
-		return int(binary.BigEndian.Uint32(b))
-	case 4:
-		return int(binary.BigEndian.Uint32(input))
-	default:
-		panic(ErrInputTooLarge)
-	}
-}
-
 func deserialize(in []byte, start int) (b []byte, offset int, err error) {
 	defer func() {
 		if recover() != nil {
@@ -170,8 +151,8 @@ func deserialize(in []byte, start int) (b []byte, offset int, err error) {
 		}
 	}()
 
-	step := start + encodingLength
-	l := os2ip(in[start:step])
+	step := start + EncodingLength
+	l := internal.OS2IP(in[start:step])
 	b = in[step : step+l]
 
 	return b, step + l, err
@@ -182,7 +163,7 @@ func deserialize(in []byte, start int) (b []byte, offset int, err error) {
 // Nil input returns nil Info pointer without error.
 func DeserializeInfo(input []byte) (*Info, error) {
 	if len(input) == 0 {
-		return nil, ErrInputEmpty
+		return nil, nil //nolint: nilnil // it's ok.
 	}
 
 	offset := 0
