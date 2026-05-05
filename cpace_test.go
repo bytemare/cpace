@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+
 	"os"
 	"path"
 	"path/filepath"
@@ -153,7 +153,6 @@ func TestCPaceWrongSid(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	t.Log(hex.EncodeToString(epku))
 	serverSK, err := responder.Finish(epku)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -461,7 +460,6 @@ func TestCPace(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.Name, func(t *testing.T) {
 			c := p.Init([]byte(tt.IDa), []byte(tt.IDb), []byte(tt.AdA)).new(Initiator)
 			s := p.Init([]byte(tt.IDa), []byte(tt.IDb), []byte(tt.AdB)).new(Responder)
@@ -639,10 +637,14 @@ func generateAllVectors(t *testing.T) []testVector {
 func TestGenerateVectorFile(t *testing.T) {
 	dir := "./tests"
 	file := "allVectors.json"
+	write := true
 
 	vectors := generateAllVectors(t)
 	content, _ := json.MarshalIndent(vectors, "", "  ")
-	_ = ioutil.WriteFile(path.Join(dir, file), content, 0o644)
+
+	if write {
+		_ = os.WriteFile(path.Join(dir, file), content, 0o644)
+	}
 }
 
 /*
@@ -725,7 +727,6 @@ func (v *testVector) test(t *testing.T) {
 		t.Fatalf("invalid epks. Vector %q, got %q", v.Epks, epks)
 	}
 
-	t.Log(i.parameters.Hash)
 	iSK, err := i.Finish(epks)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -756,7 +757,7 @@ func TestCPaceVectors(t *testing.T) {
 				return nil
 			}
 
-			contents, err := ioutil.ReadFile(path)
+			contents, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
