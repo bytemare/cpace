@@ -163,7 +163,7 @@ func deserialize(in []byte, start int) (b []byte, offset int, err error) {
 // Nil input returns nil Info pointer without error.
 func DeserializeInfo(input []byte) (*Info, error) {
 	if len(input) == 0 {
-		return nil, nil //nolint: nilnil // it's ok.
+		return nil, nil //nolint:nilnil // It's ok to stop here without errors.
 	}
 
 	offset := 0
