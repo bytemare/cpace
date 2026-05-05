@@ -31,5 +31,4 @@ var (
 	ErrPeerElementIdentity = errors.New("peer data - invalid peer message : identity element")
 )
 
-// Other errors.
 var ErrNoEphemeralPubKey = errors.New("public point not set - not initiated? ")

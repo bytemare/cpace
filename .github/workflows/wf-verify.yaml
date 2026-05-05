@@ -28,7 +28,7 @@ on:
         required: false
         default: false
 
-permissions: {}
+permissions: { }
 
 jobs:
   verify:

@@ -1,4 +1,4 @@
- root = true
+root = true
 
 [*]
 charset = utf-8
@@ -21,3 +21,11 @@ indent_size = 2
 
 [Makefile]
 indent_style = tab
+
+[draft-irtf-cfrg-cpace-21.txt]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+indent_style = unset
+indent_size = unset
+trim_trailing_whitespace = unset
