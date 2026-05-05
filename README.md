@@ -30,12 +30,12 @@ package cpace
 
 import (
     "github.com/bytemare/cpace"
-    "github.com/bytemare/crypto/group"
-    "github.com/bytemare/crypto/hash"
+    "github.com/bytemare/ecc"
+    "github.com/bytemare/hash"
 )
 
 params := &cpace.Parameters{
-        Group: ciphersuite.Ristretto255Sha512,
+        Group: ecc.Ristretto255Sha512,
         Hash:  hash.SHA512,
     }
 ```
@@ -75,8 +75,8 @@ package cpace
 
 import (
     "github.com/bytemare/cpace"
-    "github.com/bytemare/crypto/group"
-    "github.com/bytemare/crypto/hash"
+    "github.com/bytemare/ecc"
+    "github.com/bytemare/hash"
 )
 
 clientID := []byte("client")
@@ -129,7 +129,7 @@ if err != nil {
 
 ## Under the hood
 
-All cryptographic operations can be found in the [crypto package](https://github.com/bytemare/crypto), which itself uses either the standard library or tested and proved external libraries.
+All cryptographic operations can be found in the [ecc package](https://github.com/bytemare/ecc), which itself uses either the standard library or tested and proved external libraries.
 
 ## Deploy it
 
