@@ -10,9 +10,8 @@ require (
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	filippo.io/nistec v0.0.4 // indirect
-	github.com/bytemare/hash2curve v0.5.4 // indirect
 	github.com/bytemare/secp256k1 v0.5.0 // indirect
 	github.com/gtank/ristretto255 v0.2.0 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 )
